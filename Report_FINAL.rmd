@@ -1,0 +1,580 @@
+---
+title: "White Shark Number of Breeders Re-Analysis 2022"
+author: "Dani Davenport"
+bibliography: bib.bib
+output: html_document 
+---
+# Overview 
+
+This document/repository contains and outlines the re-analysis of the data presented in Davenport et al 2021.  
+
+The authors were made aware of a bug or error in the output-files used in both NeEstimator and Colony to estimate the number of breeders per cohort.  This error caused the data to become shuffled. Below, analysis is presented comparing the published data to files made directly from the original raw data. The input files for Nb estimation for NeEstimator and COLONY are re-made using raw data (based on the published loci) and the updated results are presented. The published work further sought to combine estimators of effective size to make reporting and decision making easier - combined estimates of Nb per-cohort. Here using the revised results we also make these re-estimates.  
+
+An additional sensitivity analysis is performed on the full dataset to illustrate how the inclusion of different SNPs and individuals can affect final point-estimates of effective size, and highlights the importance of considering confidence intervals (i.e using a 95%CI we expect that 95% of the time the true value of the parameter lies in its interval), as well as various estimators in conservation decisions. 
+
+# BACKROUND  
+In Davenport et al., 2021, the effective number of breeders (Nb) was estimated in 4 consecutive cohorts (2010-2013) based on the premise that when a genetic sample contains only individuals from a single age cohort (a group of individuals having the same age-class), then the estimate of effective population size (Ne) from a single-sample estimator in species with overlapping generations corresponds to the effective number of breeders (Nb). For long-lived, iteroparous species such as the white shark, estimates of Nb are generally considered more useful for monitoring as they apply to a single breeding season (rather than needing a sample representative of a generation - an assumption of Ne (see @waplesWhatAnyway2022)), and it represents an accessible parameter for monitoring population trends at ecological timescales most relevant to conservation and management needs. Nb is particularly useful in cases where juvenile or YOY samples can be easily collected (i.e. through SMART shark program NSW). Estimating Nb and monitoring its change over time allows timely detection of population trends (decline, restoration, recovery, expansion), even if using as few as four or five consecutive reproductive cycles (@leberg2005genetic; @wangEstimationEffectivePopulation2005;  @luikartDetectingPopulationDeclines2021).  
+  
+# METHODS  
+  
+## DATA  
+The original DArT data for this project can be found in the file Data/Raw  
+The results of the reanalysis can be found in Results/ and Data/  
+
+The filtered list of loci from the published analysis can be found in Data/Raw/Report-DSha18-3402/File_Formats/Genepop_NeEstimator_Input/nswdpi_whiteshark_gp.gen. The loci names were extracted from this document to ensure the data from the publication are used in the reanalysis here.  Readers are referred to the original publication for more detailed methods. In summary, a list of loci/SNPs which meet the articles filtering criteria are saved in the '.gen' file. These are used here to re-make the input files for NeEstimator and Colony from the original raw-data, from which Nb per cohort is re-estimated.The full raw data is also used to re-estimate Nb using a sensitivity analysis of loci/individuals.  
+  
+### Setup 
+```{r, message=F, echo = F, warnings = F}
+library(dartR)
+library(tidyverse)
+library(ggplot2)
+library(here)
+strata_info = read.table("Data/Strata_Sex_Model_COHORT_REGRESSION.tsv", header = T) # used in the published ms 
+```
+
+## QUANTIFY THE ISSUE
+A bug in an R-package used in the original publication is suspected to have introduced inconsistencies into the output files used in the final analysis. Below, I explore the extent of the error in the published file (missingness, heterozygosity ect) by comparing the published input files (incorrect files) with new files made without the error.  
+```{r Quantify Error, meassge = F, echo = F}
+# read in published genepop file affected by bug - herein refered to as 'orig-genepop'
+orig_gp <- adegenet::read.genepop(file = "Data/Raw/Report-DSha18-3402/File_Formats/Genepop_NeEstimator_Input/nswdpi_whiteshark_gp.gen", ncode = 3L, quiet = TRUE)
+orig_gl <- dartR::gi2gl(orig_gp)
+# it didnt fix the names, so do it here
+orig_gl@loc.names<- sub(".*?-", "", str_replace_all(orig_gl@loc.names,"__","-"))  # change whitelist loci seperators so they are in the fornat needed to match the genlight obj
+
+# 'new_genepop'
+# read in orgional data, and use the list of loci to make a new dataset - herein refered to as 'new-genepop'
+input_gl = dartR::gl.read.dart("Data/Raw/Report-DSha18-3402/Raw_Data_Original_DO_NOT_EDIT/Report_DSha18-3402_SNP_2_ReLabeled.csv")
+# change the GL loci names so they are in a suitable format 
+input_gl@loc.names <- sub("^([^-]*-[^-]*).*", "\\1", input_gl@loc.names)
+# filter the gl to have the same loci as used in 'orig-gp'
+order_loci <- sapply(orig_gl@loc.names, function(x,order){which(order == x)}, order = input_gl@loc.names)
+new_gl <- input_gl[,order_loci]
+# dartR has a bug where it doesnt fix up other information stored in other
+dim(new_gl@other$loc.metrics)
+new_gl@other$loc.metrics <- new_gl@other$loc.metrics[order_loci,]
+# match so the files have the same samples, in the same order
+order_ind <- sapply(orig_gl@ind.names, function(x,order){which(order == x)}, order = str_replace_all(new_gl@ind.names, "_", "-"))
+
+new_gl <- new_gl[order_ind,]
+# check
+dim(new_gl@other$loc.metrics)
+# add the population information, also make sure its in the right order
+pop = dplyr::left_join(tibble::tibble(TARGET_ID=str_replace_all(new_gl@ind.names, "_", "-")), strata_info, by = "TARGET_ID")
+new_gl@pop<- factor(pop$STRATA)
+# check 
+which(head(str_replace_all(new_gl@ind.names, "_", "-")) ==  head(orig_gl@ind.names))
+which(head(orig_gl@loc.names) == head(new_gl@loc.names))
+```
+  
+  
+### Quantify differences in missingness between the published and new dataset 
+```{r missingness, message = F}
+# compare the old and the new files for missingness
+# print out each genlight to get info on missngness, loci, invidual
+orig_gl
+new_gl
+```
+These results show the number of individuals and the number of loci does not change between the published and the new dataset. However, the number of missing data in the published dataset is 4506, while the re-analysis dataset missingingess is 4503.
+ 
+### Visualise the difference between the published and new dataset 
+```{r, message = F, caption = "Visualisation of datasets showing published data (top) and new data (bottom). The colours are inverted, where the new file and old file have the 1st allele listed differently (makes no difference to the final result). However, given the SNP index is the same between files (loci are in the same order), and individuals are supposedly in the same order, it appears the published data has been shuffled or inverted"}
+# visualize the data
+ogplot = adegenet::glPlot(orig_gl, posi="topleft")
+newplot = adegenet::glPlot(new_gl, posi="topleft")
+#print(
+#  gridExtra::grid.arrange(ogplot, newplot, nrow = 1, ncol = 2)
+#)
+```
+
+```{r Flip matrix rows, echo = F, eval = F, include = F}
+#Have the data been inverted?  
+#(a) Flip the row; (b) flip the columns; (c) flip columns and rows  
+# check if the rows (individuals) have been flipped?
+new_fliprow <-  new_gl[rev(seq_len(nrow(new_gl))), ]
+newrowplot = adegenet::glPlot(new_fliprow, posi="topleft")
+
+# check if the columns (loci) have been flipped?
+new_flipcol <-  new_gl[, rev(seq_len(ncol(new_gl)))]
+newcolplot = adegenet::glPlot(new_flipcol, posi="topleft")
+
+
+# check if the entire matrix has been inverted
+# check if the columns have been flipped?
+new_flipcolrow <-  new_gl[rev(seq_len(nrow(new_gl))), rev(seq_len(ncol(new_gl)))]
+newrowcolplot = adegenet::glPlot(new_flipcolrow, posi="topleft")
+
+```
+I then check the sums of each matrix, and row/column. If the integrity of the sample/loci are maintained between datasets, the sorted vector of rowsums/ colsums should match. 
+```{r  echo = F, eval = T, include = F}
+# we need to invert the homozygotes in the new data
+temp = as.data.frame(as.matrix(new_gl))
+temp[temp ==2] <-4
+temp[temp == 0]<- 2
+temp[temp == 4]<- 0
+
+# check the sum of each matrix 
+sumnew= sum(temp, na.rm = T) # 1512533
+sumold = sum(as.matrix(orig_gl), na.rm = T) # 1552507
+
+
+vec = sum(as.matrix(orig_gl)[1,], na.rm = T) # a single sample, MBB1160
+# is this value unique? - yes it is
+vec %in% unique(colSums(t(as.data.frame(as.matrix(orig_gl))), na.rm = T))
+#rownames(as.matrix(orig_gl))[which(colSums(t(as.data.frame(as.matrix(orig_gl))), na.rm = T) == vec)]
+# yes this matches the origional data, now check if the same colsum for this sample can be found in the new data
+#rownames(as.matrix(orig_gl))[which(colSums(t(temp), na.rm = T) == vec)] # none, that means that this sample doesn't have the same genotype in the new data as in the published data
+```
+  
+Result: The sum of the published matrix, ``r print(sumold)`` differs from the sum of the new matrix ``r print(sumnew)``, indicating that while the number of loci and samples are identical between the two (as above), the data included in the two do not match, confirming numerically that the published data used was indeed  corrupted.  
+
+```{r Directly compare the rows and cols, echo = F, message = F, eval = F}
+# match, only if in the same order
+match(asplit(as.matrix(orig_gl), 1), asplit(as.matrix(new_gl), 1))
+match(asplit(as.matrix(orig_gl), 2), asplit(as.matrix(new_gl), 2))
+
+# sort first and then check each from a against b
+# samples, rows
+sumTRUE = c()
+for (a in asplit(as.matrix(orig_gl), 1)) {
+  for (b in asplit(as.matrix(temp), 1)){
+    sumTRUE = c(sumTRUE, identical(sort(a), sort(b)))
+  }
+}
+print(length(which(sumTRUE == TRUE))) # none
+
+# loci, columns (i'll just check the first 100 from each)
+
+sumTRUE = c()
+for (a in asplit(as.matrix(orig_gl), 2)[1:100]) {
+  for (b in asplit(as.matrix(temp), 2)[1:100]){
+    sumTRUE = c(sumTRUE, identical(sort(a), sort(b)))
+  }
+}
+print(length(which(sumTRUE == TRUE))) # none
+```
+### STATS  
+Below I calculate some basic stats for each dataset 
+```{r stats, echo = T, message = F}
+#Note: Importantly, this function in dartR implements basic.stats from Heiferstat (I assume, it doesn't specify the package on which this function is dependent in the dartR documentation, only the function "basic.stats"), which accounts for population information in some calculations and that is accounted for below account for that. 
+
+orig_gl.nopop <- orig_gl
+orig_gl.nopop@pop <- factor(rep("A", length(new_gl@pop)), levels = "A")
+stats_og <- dartR::gl.basic.stats(orig_gl.nopop)
+new_gl.nopop<-  new_gl
+new_gl.nopop@pop <- factor(rep("A", length(new_gl@pop)), levels = "A")
+stats_new <- dartR::gl.basic.stats(new_gl)
+
+# og 
+print(stats_og$overall)
+#re
+print(stats_new$overall)
+
+```
+
+Because these calculations are averaged over loci, we would expect the results to be the same if that data were in either the same order (samples, loci) or even in a mixed order. The differences in Ho, He (overall) indicate that while overall the number of loci, individuals and missingness doesn't change, the data is indeed different, again confirming numerically that the published dataused was indeed  courrupted.   
+
+#### Missingness per indivudal
+```{r}
+missingness_new <- rowSums(is.na(as.matrix(new_gl)))
+missingness_old <- rowSums(is.na(as.matrix(orig_gl)))
+
+print(
+data.frame(MISS_OG = missingness_new, MISS_NEW = missingness_old) %>%
+  dplyr::mutate(DIFF = MISS_OG - MISS_NEW)  %>%
+  tibble::rowid_to_column() %>%
+  ggplot2::ggplot(., aes(x = rowid, y = DIFF)) +
+  geom_point() + 
+  geom_hline(yintercept=0, linetype="dashed", color = "red") + 
+  labs(y = "Difference in Missingness per Sample", x = "Sample ID") + 
+  ggplot2::theme_classic() +
+  theme(
+      legend.position = "none",
+      axis.title.x = ggplot2::element_text(size = 15),
+      axis.title.y = ggplot2::element_text(size = 15),
+      strip.text.x = ggplot2::element_blank(), 
+      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+)
+
+
+# length(which(sort(missingness_new) == sort(missingness_old)))
+```
+As above, the total amount of missingness between datasets differ by 3 (published missing 4506, the new data missing 4503). The total number of rows where the missingness is matched between datasets is 152. 
+#### Heterozygosity 
+```{r heterozygosity by individual, message = F, echo = F}
+het_og <- dartR::gl.report.heterozygosity(orig_gl, method = "ind") # this only works if you dont set plot to F becuase its buggy
+het_new <- dartR::gl.report.heterozygosity(new_gl, method = "ind") # this only works if you dont set plot to F becuase its buggy
+```
+```{r plot het, caption = "Fig. Plot of the difference in observed heterozygsoity (Ho) between the published and new dataset per sample. The results indicate the data in the published set underestimates heterozygosity in the majority of samples", echo = F}
+# plot heterozygosity per sample 
+het = data.frame(HET_OG = het_og$Ho, HET_NEW = het_new$Ho, ID = het_og$ind.name) %>%
+dplyr::mutate(DIFF = HET_OG - HET_NEW) 
+print(ggplot2::ggplot(het, aes(x = ID, y = DIFF)) +
+  geom_point() + 
+  geom_hline(yintercept=0, linetype="dashed", color = "red") + 
+  labs(y = "Difference in Heterozygosity per Sample", x = "Sample ID") + 
+  ggplot2::theme_classic() +
+  theme(
+      legend.position = "none",
+      axis.title.x = ggplot2::element_text(size = 15),
+      axis.title.y = ggplot2::element_text(size = 15),
+      strip.text.x = ggplot2::element_blank(), 
+      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+)
+
+max_het = max(het$DIFF)
+```
+  
+Heterozygosity is lower in the published data.  However, the difference is slight (< ``r max_het ``)  
+  
+#### PCA 
+```{r PCA, message = F}
+# origional 
+pca_og <- glPca(orig_gl, nf = 20)
+eig =pca_og$eig[!is.na(pca_og$eig)]
+#barplot(100*eig/sum(eig), main="PCA Eigenvalues")
+## plot basic pca - PC1 v PC2
+print(
+  as.data.frame(pca_og$scores) %>%
+      tibble::rownames_to_column(., var ='ID') %>%
+      ggplot(., aes(x=PC1, y=PC2, label = ID))  + 
+      geom_point(size=2) +
+      geom_text() + 
+      stat_ellipse(level = 0.95, size = 1) +
+      #scale_color_manual(values = cmilli_colors) +
+      geom_hline(yintercept = 0) +
+      geom_vline(xintercept = 0) +
+      theme_bw() + 
+      xlab(paste0("PC1 [",paste0(round(eig[1], 2)), "%]")) + 
+      ylab(paste0("PC2 [",paste0(round(eig[2], 2)), "%]")) 
+)
+#scatter(pca_og, posi="none")
+#title("PCA of the original data\n axes 1-2")
+# new 
+pca_new <- glPca(new_gl, nf = 20)
+scatter(pca_new, posi="bottomright")
+title("PCA of the new data\n axes 1-2")
+```
+  
+The PCA indicates the error introduced into the published data changes the position of individuals in the pca.  
+
+## CORRECTING ESTIMATES
+Below, I re-make input files for NeEstimator and COLONY so as to make new estimates of Nb using a new file made from the published list of loci ("new_gp"). I use dartR to write out a genepop file, and a custom script to write out a colony file. These files are manually scanned to ensure they have been written out correctly, and checked by plotting a pca of samples. 
+```{r make new input file, eval = F}
+current_path = getwd()
+
+# 1. write out new_gp as a genepop , check that the file has been written out correctly 
+# 1a. run this file through NeEstimator
+
+# first its important to make sure that the cohort are correctly assigned 
+cohort_assignment = readr::read_tsv("Report/Cohort_Assignment.tsv") %>%
+  separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
+  unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+ind_order = tibble::tibble(MBB_CODE_JOIN = new_gl$ind.names, OLD_STRATA = new_gl@pop) %>%
+  left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
+new_gl@pop<- as.factor(ind_order$STRATA)
+
+dartR::gl2genepop(new_gl, outfile = "new.gen", outpath = current_path)
+```
+
+Here i read in the data from the new genepop file for Ne estimator and run pca to make sure the data is written out correctly. 
+```{r check input file, eval = T}
+#check
+agenepop = adegenet::read.genepop("Report/new.gen", ncode = 2) # ncode, an integer indicating the number of characters used to code an allele
+
+# # pca genepop
+#  f1 <- function(vec) {
+#         m <- mean(vec, na.rm = TRUE)
+#         vec[is.na(vec)] <- m
+#         return(vec)
+#     }
+# 
+# Y = apply(agenepop@tab,2,f1)
+# dudi = dudi.pca(Y, nf = 20, scannf = FALSE)
+# ind_coords = as.data.frame(dudi$li)
+# ind_coords$Ind = indNames(agenepop)
+# ggplot(data = ind_coords, aes(x = Axis1, y = Axis2, label = Ind))+
+# geom_hline(yintercept = 0)+
+# geom_vline(xintercept = 0)+
+# #geom_point(shape = 21, size = 3, show.legend = FALSE)+
+# geom_text(size = 5) + 
+# theme_bw()
+
+# og pca
+pca_new <- glPca(dartR::gi2gl(agenepop), nf = 20)
+scatter(pca_new, posi="bottomright")
+title("PCA of the new data\n axes 1-2")
+
+
+# pca, in this pca, missing data are automatically replaced by the mean which is not that great tbh
+pca_og <- glPca(new_gl, nf = 20)
+scatter(pca_new, posi="bottomright")
+title("PCA of the new data\n axes 1-2")
+
+# the orientation of the samples is slight, importantly the proximity of samples is maintained, basically the same 
+```
+```{r write colony, eval = F}
+# 2. write the same file to COLONY format , check that the file has been written out correctly 
+# 2b. run this file through COLONY
+
+# write a colony file - (see website for specs) https://www.zsl.org/science/software/colony
+for (obj in adegenet::seppop(agenepop)[2:length(levels(agenepop@pop))]){
+data = obj
+pop = levels(obj@pop)
+marker.num = 3668
+filename = paste(current_path, paste0(pop,"colony"), sep="/")
+# line 1 - dataset name
+line_1 = paste0(dQuote(paste0("Colony Input Pop: ", pop)),"                 ! Dataset name\n")
+readr::write_file(line_1, filename, append = FALSE)
+# line 2 - output file name 
+line_2 = paste0(dQuote(paste0("Output_", pop)),"                 ! Output file name\n")
+readr::write_file(line_2, filename, append = T)
+# line 3 - offspring number 
+line_3 <- paste(nrow(data), "                                  ! Number of offspring in the sample\n", sep = "")
+readr::write_file(line_3, filename, append = T)
+# line 4 - number of markers
+line_4 <- paste(marker.num, "                                 ! Number of loci\n", sep = "")
+readr::write_file(line_4, filename, append = T)
+# line 5 - random seed
+line_5 <- "1234                                 ! Seed for random number generator\n"
+readr::write_file(line_5, filename, append = T)
+# line 6 - allele frequency update?
+line_6 <- "0                                    ! 0/1=Not updating/updating allele frequency\n"
+readr::write_file(x = line_6, file = filename, append = TRUE)
+# line 7 - dioecious/monecious
+line_7 <- "2                                    ! 2/1=Dioecious/Monoecious species\n"
+readr::write_file(x = line_7, file = filename, append = TRUE)
+# line 8 - inbreeding
+line_8 <- "0                                    ! 0/1=No inbreeding/inbreeding\n"
+readr::write_file(x = line_8, file = filename, append = TRUE)
+# line 9 - ploidy
+line_9 <- "0                                    ! 0/1=Diploid species/HaploDiploid species\n"
+readr::write_file(x = line_9, file = filename, append = TRUE)
+# line 10 - mating system 
+line_10 <- paste("0","  ", "0", "                                 ! 0/1=Polygamy/Monogamy for males & females\n", sep = "")
+readr::write_file(x = line_10, file = filename, append = TRUE)
+# line 11 - clone inference 
+line_11 <- paste("0                                    ! 0/1=Clone inference =No/Yes\n", sep = "")
+readr::write_file(x = line_11, file = filename, append = TRUE)
+# line 12 - sibship size scaling 
+line_12 <- "1                                    ! 0/1=Full sibship size scaling =No/Yes\n"
+readr::write_file(x = line_12, file = filename, append = TRUE)
+# line 13 - sibship prior (0, 1, 2, 3 = No, weak, medium, strong sibship size prior; mean paternal & maternal sibship size)
+line_13 <- "0 0 0                                ! 0, 1, 2, 3 = No, weak, medium, strong sibship size prior; mean paternal & maternal sibship size\n"
+readr::write_file(x = line_13, file = filename, append = TRUE)
+# line 14 - pop allele freq indiciator **note - if you set this to 1 you must add other lines inbetween line 14 and line 15 
+line_14 = "0                                    ! 0/1=Unknown/Known population allele frequency\n"
+readr::write_file(x = line_14, file = filename, append = TRUE)
+# line 15 - number of runs
+line_15 <- "1                                    ! Number of runs\n"
+readr::write_file(x = line_15, file = filename, append = TRUE)
+# line 16 - length of run
+line_16 <- "2                                ! Length of run\n"
+readr::write_file(x = line_16, file = filename, append = TRUE)
+# line 17 - 0/1=Monitor method by Iterate
+line_17 <- "0                                    ! 0/1=Monitor method by Iterate\n"
+readr::write_file(x = line_17, file = filename, append = TRUE)
+# line 18 - monitor interval in Iterate
+line_18 <- "10000                                ! Monitor interval in Iterate\n"
+readr::write_file(x = line_18, file = filename, append = TRUE)
+# line 19 - non-Windows version
+line_19 <- "0                                    ! non-Windows version\n"
+readr::write_file(x = line_19, file = filename, append = TRUE)
+# line 20 - analysis 0 (Pairwise-Likelihood Score), 1 (Full Likelihood), 2 (combined Pairwise-Likelihood Score and Full Likelihood)
+line_20 <- "1                                    ! Analysis 0 (Pairwise-Likelihood Score), 1 (Full Likelihood), 2 (combined Pairwise-Likelihood Score and Full Likelihood)\n"
+readr::write_file(x = line_20, file = filename, append = TRUE)
+# line 21 - 1/2/3=low/medium/high Precision for Full likelihood
+line_21 <- "3                                    ! 1/2/3=low/medium/high Precision for Full likelihood\n"
+readr::write_file(x = line_21, file = filename, append = TRUE)
+# line 22 - marker IDs/Names
+#snp.id = stringi::stri_join(seq(from = 1, to = marker.num, by = 1), collapse = " ")
+line_22 <- paste0("\nmk@","                                    ! Marker IDs\n")
+readr::write_file(x = line_22, file = filename, append = TRUE)
+# line 23 - marker type (codominant/dominant)
+#line_23 = stringi::stri_join(rep(0, marker.num), collapse = " ")
+line_23 = "0@                                    ! Marker Type\n"
+readr::write_file(x = line_23, file = filename, append = TRUE)
+# line 24 - alellelic dropout rate 
+#line_24 <- stringi::stri_join(rep(0, marker.num), collapse = " ")
+line_24 = "0@                                    ! Dropout Rate\n"
+readr::write_file(x = line_24, file = filename, append = TRUE)
+# line 25 - error rate (two new lines)
+#error <- stringi::stri_join(rep(0.2, marker.num), collapse = " ")
+error = paste0("0.02@                                    ! False allele rate\n", "\n")
+#error <- paste0(error, "     ! False allele rate\n\n")
+readr::write_file(x = error, file = filename, append = TRUE)
+# line 26 - offspring id and genotype (two new lines after last inds)
+# change homozygotes (0) to 11
+# change heterozygote (1) to 12
+# change homozygote (2) to 22 
+# change NA to 00
+data = as.matrix(obj)
+data[data == 0] <- "1,1"
+data[data == 1] <- "1,2"
+data[data == 2] <- "2,2"
+data[is.na(data)]<- "0,0"
+
+df = data.frame(data)
+df = purrr:::reduce(seq_along(df), 
+       .init = df, 
+       ~ .x %>% separate(names(df)[.y], 
+                         sep = ',', 
+                         into = paste0(names(df)[.y], '_col_' , seq(1 + max(str_count(df[[.y]], ',')))),
+                         fill = 'right'
+                         )
+) 
+
+utils::write.table(x = df, file = filename, sep = "\t", append = TRUE, col.names = FALSE, row.names = TRUE, quote = FALSE)
+
+# line 27 - Prob. of dad/mum included in the candidates
+line_27 <- "\n\n0  0                                 ! Prob. of dad/mum included in the candidates\n"
+readr::write_file(x = line_27, file = filename, append = TRUE)
+# line 28 - Numbers of candidate males & females
+line_28 <- "0  0                                ! Numbers of candidate males & females\n"
+readr::write_file(x = line_28, file = filename, append = TRUE)
+# line 29 - Number of offspring with known father
+line_29 <- "0  0                                 ! Number of offspring with known father\n"
+readr::write_file(x = line_29, file = filename, append = TRUE)
+# line 30 - Number of offspring with known mother
+line_30 <- "0  0                                 ! Number of offspring with known mother\n"
+readr::write_file(x = line_30, file = filename, append = TRUE)
+# line 31 - Number of known paternal sibships
+line_31 <- "0                                    ! Number of known paternal sibships\n"
+readr::write_file(x = line_31, file = filename, append = TRUE)
+# line 32 - Number of known maternal sibships
+line_32 <- "0                                    ! Number of known paternal sibships\n"
+readr::write_file(x = line_32, file = filename, append = TRUE)
+# line 33 - Number of offspring with known excluded fathers
+line_33 <- "0                                    ! Number of offspring with known excluded fathers\n"
+readr::write_file(x = line_33, file = filename, append = TRUE)
+# line 34 - Number of offspring with known excluded mothers
+line_34 <- "0                                    ! Number of offspring with known excluded fathers\n"
+readr::write_file(x = line_34, file = filename, append = TRUE)
+# line 35 - Number of offspring with known excluded paternal sibships
+line_35 <- "0                                    ! Number of offspring with known excluded fathers\n"
+readr::write_file(x = line_35, file = filename, append = TRUE)
+# line 36 - Number of offspring with known excluded maternal sibships
+line_36 <- "0                                    ! Number of offspring with known excluded fathers\n"
+readr::write_file(x = line_36, file = filename, append = TRUE)
+}
+# to run colony on command line, just make sure colony is installed in the same directory as the f
+ls *colony > colonyinputfiles.txt
+parallel -j15 ./Colony/colony2s.ifort.out IFN:{} :::: colonyinputfiles.txt
+
+```
+## Results
+Outputs of NeEstimator and of Colony are saved in Report/NbResults.xlsx , where jacknife CIs are reported for pcrit = 0.05. The abbreviations "og" refers to published estimates, "re" refers to the new estimates using corrected file. 
+```{r}
+knitr::kable(
+  tibble::tibble(
+  Measurement = c(2010, 2011, 2012, 2013), 
+  n = c(29,42,52,63), 
+  og_mono = c("705", "555", "468", "411"), 
+  og_nbld = c("193 (91-INF)", "195 (104-953)", "166 (104, 360)", "209 (116, 713)"), 
+  og_nbsa = c("271(136–1430)[2,2]", "344(204–923)[4,4]", "241(157–399)[8,6]", "289(200–461)[8,10]"), 
+  re_monomorphic =c("620", "379", "300", "191"), 
+  re_NbLD = c("62.7 (35.8-679.5)", "214.6 (104.8-551.1)", "215.5 (112.7-290.2)", "171.9 (117.3, 301.7)"), 
+  re_NbSA = c("96  (59,181)", "344  (211,872)", "285 (194,567)", "200 (147,297)"), 
+  og_combined = c("-", "233.2(±69.5)", "206.1(±45.9)", "252.0(±46.7)"), 
+  re_Combined = c("")
+  )
+)
+```
+## SENSITIVITY ANALYSIS  
+Below I perform a sensitivity/bootstrap analysis whereby 3000 loci from the raw (unfiltered) data are randomly sampled from 30 samples assigned to the 2013 cohort 10 times. The resulting files are used in NeEstimator only, to estimate the effective number of breeders (LDNb), the results summarized in a table(Results/Sensitivity), and are plotted for visualisation (using pcrit = 0.05).   
+  
+
+### Make Sensitivity Analysis Files 
+Here, I run a sensitivity analysis using the 2013-cohort to provide an example. Here I use the raw data for the 2013-cohort (Loci = 9841 loci, N samples = 63) and I randomly sample without replacement 3000 loci and 30 samples 10 times.
+```{r sensitivity analysis, eval = F}
+## following on from above
+## make a matrix of 2013 samples and loci from the raw data (unfiltered)
+
+input = dartR::gl.read.dart("Data/Raw/Report-DSha18-3402/Raw_Data_Original_DO_NOT_EDIT/Report_DSha18-3402_SNP_2_ReLabeled.csv")
+# add strata info 
+pop = dplyr::left_join(tibble::tibble(TARGET_ID=str_replace_all(input@ind.names, "_", "-")), strata_info, by = "TARGET_ID")
+input@pop<- factor(pop$STRATA)
+# get only the 2013 samples
+input2013 = adegenet::seppop(input, keepNA = TRUE)$"2013" #63 samples, 9841 loci
+rand_gi_list<- list()
+for(i in c(1:10)){
+  rand_gi_list[[i]]<-  input2013[sample(c(1:63), size = 30, replace = F),sample(c(1:9841), size = 3000, replace = F)]
+}
+
+# write each one out into a genepop for neestimator 
+output_path = "Report/"
+for (i in 1:10){
+dartR::gl2genepop(rand_gi_list[[i]], outfile = paste0(i, ".gen"), outpath = output_path)
+}
+```
+```{r same loci, include = F, eval = F }
+# if you want the same loci as published but different samples, just use this
+input = new_gl
+# add strata info 
+#pop = dplyr::left_join(tibble::tibble(TARGET_ID=str_replace_all(input@ind.names, "_", "-")), strata_info, by = "TARGET_ID")
+#input@pop<- factor(pop$STRATA)
+# get only the 2013 samples
+input2010 = adegenet::seppop(input, keepNA = TRUE)$"2010" 
+rand_gi_list<- list()
+for(i in c(1:10)){
+  rand_gi_list[[i]]<-  input2010[sample(c(1:29), size = 29, replace = F),sample(c(1:3668), size = 3668, replace = F)]
+}
+
+# write each one out into a genepop for neestimator 
+output_path = "Report/"
+for (i in 1:10){
+dartR::gl2genepop(rand_gi_list[[i]], outfile = paste0(i, "test.gen"), outpath = output_path)
+}
+```
+
+```{r plot sensitivty analysis}
+#  plot results, summarised in sensitivity.csv -> bar chart of point estimates, LCI and UCI 
+sens = readxl::read_excel('Report/Sensitivity.xlsx', col_type = 'numeric')
+sens %>% 
+    tidyr::pivot_longer(., everything(), names_to = "measure", values_to = "value") %>%
+    ggplot(., aes(x = measure, y = value)) + 
+    geom_boxplot(outlier.colour="black", outlier.shape=16,
+             outlier.size=2, notch=FALSE) + 
+    theme_bw()
+```
+
+The results of this sensitivity analysis show that different loci/individual combinations produce different point estimates, although all point-estimates presented in the boxplot fall within the 95% jacknife confidence intervals of all other estimates (three estimate had an infinite UCI) - highlighting the importance of considering CIs in point-estimates of Ne.  
+Some notes: It is well known that bioinformatic filtering of large genomic datasets can have downstream impacts (i.e linked loci ect, see the many publications on this topic such as @schweizerBigDataConservation2021). However, Davenport et al 2021 filtered their data to strictly meet the assumptions of Ne (no HWE, unlinked, neutral). All that is to say, if a different set of loci or samples are used, you will get different result (as above). However, methods such as the jackknife CIs (implemented in NeEstimator, see @jonesImprovedConfidenceIntervals2016), sensitivity analysis (see @dudgeonSeasonalitySiteFidelity2013 for a nice example, and also see above) or combining/using different estimators of the same paramerter of interest as done in Davenport et al. 2021 (i.e. NeEstimator, Colony, LinkNe and so on) can help to better understand the data.  
+
+# Conclusion of re-analyis  
+This independent re-analysis of original data confirm through visualizations and statistics, the corruption and errors in the published data set. In the reanalysis here, we make no attempt here to re-assess the code from published packages used at the time to identify the source of the error, and so we cannot point to its source, but only highlight that since the writing out of the genepop file was used to make Colony files, the error was replicated also in those estimates.  
+
+# Comment on Blower and Butcher report '22
+The report first identified the error in the published estimates and we thank the authors for their diligence. We note the report referred to 2014 cohort estimates, however these estimates were not included in the published study.   
+We further note that the B&B'22 report states: "...trends observed by the current study are more concerning in a conservation management context than those observed by Davenport et al. (2021). Some Nb.LD estimates of this study drop below, or are close to, one accepted Nb threshold for inbreeding, and the effective breeder numbers show significant fluctuations over five years". The primary author disagrees with this characterization of the results, Nb is not usually used to assess inbreeding, this is usually the related measure Ne, which would be the average Nb over a generation. The simulations in the published study show that the Nb/Ne ratio will depend on the life-history of the species (i.e skipped breeding). The primary author notes that by combining the estimates of Nb between methods as outlined in the original publication, the new +/- SD can be used to monitor the change in the distributions of Nb (not Ne) overtime.  
+  
+# Summary  
+In summary, the authors of Davenport et al 2020 were made aware of a bug which introduced errors into output data used to estimate the effective number of breeders in four cohorts of white shark. In this document, we confirm the published data was corrupted and re-make files to estimate Nb using the published list of loci, and perform a sensitivity analysis to support the robustness of the published results. Importantly, the results presented herein do not change the final conclusions or recommendations of the published work. It is recommended by the primary author that outcome of this re-analysis be published in an erratum.  
+
+# FURTHER INFORMATION
+To run the analysis herein, see the following:  
+
+```{r}
+sessionInfo()
+```  
+
+# Conclusion
+
+The authors would like to acknowledge an error in the article entitled “Effective number of white shark (Carcharodon carcharias, Linnaeus) breeders is stable over four successive years in the population adjacent to eastern Australia and New Zealand” which was published in Ecology and Evolution (Volume 11, Issue 1, pp 186-198). Input SNP data to estimate Nb became shuffled such that the results presented in Table 1 (and in text) should read:  
+
+
+```{r}
+knitr::kable(
+  tibble::tibble(
+  Measurement = c(2010, 2011, 2012, 2013),
+  n = c(29,42,52,64), 
+  NbLD = c("62.7 (35.8-679.5)", "214.6 (104.8-551.1)", "215.5 (112.7-290.2)", "171.9 (117.3, 301.7)"), 
+  NbSA = c("96  (59,181)", "344  (211,872)", "285 (194,567)", "200 (147,297)"), 
+  Combined = c("91.87 (+/-25.44)", "252.83 (+/-67.40)", "247.71 (+/-53.83)", "195.94 (+/-32.15)"), 
+  nbna = c("0.12 (0.09-0.19)", "0.34 (0.25-0.54)", "0.33 (0.24-0.53)", "0.26 (0.42-0.19)")
+  )
+)
+```
+
+In all cases, the published estimates of Nb fall within the published confidence intervals. The error does not change the inferences or recommendations of the article. The authors apologies for the error and any inconvenience this may have caused.  
+  
+# References
