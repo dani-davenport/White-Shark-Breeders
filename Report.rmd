@@ -263,8 +263,6 @@ for(i in 5:9){
 
 ## Run COLONY
 
-This needs to be done on a Linux Machine. You could do manually if you wanted too.
-
 ```{r run colony, eval = T}
 # # to run colony on command line, just make sure colony is installed in the same directory as the f
 # ls *colony > colonyinputfiles.txt
