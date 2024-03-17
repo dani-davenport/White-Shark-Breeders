@@ -287,6 +287,9 @@ system("ls")
 
 ## Run NeEstimator
 
+```{r run colony, eval = T}
+
+```
 
 ## Run Combination Estimates Code
 
