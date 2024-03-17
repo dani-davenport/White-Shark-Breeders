@@ -1,0 +1,609 @@
+---
+title: "White Shark Number of Breeders Re-Analysis 2022"
+author: "Andrew Jones"
+bibliography: bib.bib
+output: html_document 
+---
+
+
+```{r setup, message=F, echo = F, warnings = F}
+
+knitr::opts_chunk$set(dpi = 400, 
+                      echo=FALSE, # change true or false here whether you want to show the R code
+                      warning=FALSE, 
+                      message=FALSE, 
+                      fig.show=TRUE, 
+                      fig.keep = 'all', 
+                      fig.path= 'figures/'
+)
+
+library(dartR)
+library(tidyverse)
+library(ggplot2)
+library(here)
+library(hierfstat)
+library(readxl)
+library(gt)
+library(nlme)
+
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(readr)
+library(stringr)
+
+
+#remotes::install_github("thierrygosselin/radiator")
+#remotes::install_github("tokami/TropFishR")
+library(TropFishR)
+library(radiator)
+
+source(utility_functions.R)
+
+```
+
+# Overview 
+
+This document/repository contains and outlines the re-analysis of the data presented in Davenport et al 2021 @davenport2021effective, as re-re-analysed by Andrew Jones.  
+
+The authors were made aware of a bug or error in the output-files used in both NeEstimator and Colony to estimate the number of breeders per cohort.  This error caused the data to become shuffled. Below, analysis is presented comparing the published data to files made directly from the original raw data. The input files for Nb estimation for NeEstimator and COLONY are re-made using raw data (based on the published loci) and the updated results are presented. The published work further sought to combine estimators of effective size to make reporting and decision making easier - combined estimates of Nb per-cohort. Here using the revised results we also make these re-estimates.  
+
+An additional sensitivity analysis is performed on the full dataset to illustrate how the inclusion of different SNPs and individuals can affect final point-estimates of effective size, and highlights the importance of considering confidence intervals (i.e using a 95%CI we expect that 95% of the time the true value of the parameter lies in its interval), as well as various estimators in conservation decisions. S
+
+# Background 
+
+In Davenport et al., 2021, the effective number of breeders (Nb) was estimated in 4 consecutive cohorts (2010-2013) based on the premise that when a genetic sample contains only individuals from a single age cohort (a group of individuals having the same age-class), then the estimate of effective population size (Ne) from a single-sample estimator in species with overlapping generations corresponds to the effective number of breeders (Nb). For long-lived, iteroparous species such as the white shark, estimates of Nb are generally considered more useful for monitoring as they apply to a single breeding season (rather than needing a sample representative of a generation - an assumption of Ne (see @waplesWhatAnyway2022)), and it represents an accessible parameter for monitoring population trends at ecological timescales most relevant to conservation and management needs. Nb is particularly useful in cases where juvenile or YOY samples can be easily collected (i.e. through SMART shark program NSW). Estimating Nb and monitoring its change over time allows timely detection of population trends (decline, restoration, recovery, expansion), even if using as few as four or five consecutive reproductive cycles (@leberg2005genetic; @wangEstimationEffectivePopulation2005;  @luikartDetectingPopulationDeclines2021).  
+  
+# Data 
+
+The original DArT data for this project can be found in the file /Data/Raw  
+
+The results of the reanalysis can be found in /Results.
+
+The filtered list of loci from the published analysis can be found in Data/Raw/Report-DSha18-3402/File_Formats/Genepop_NeEstimator_Input/nswdpi_whiteshark_gp.gen.
+
+The loci names were extracted from this document to ensure the data from the publication are used in the reanalysis here.  Readers are referred to the original publication @davenport2021effective for more detailed methods. In summary, a list of loci/SNPs which meet the articles filtering criteria are saved in the '.gen' file. These are used here to re-make the input files for NeEstimator and COLONY from the original raw-data, from which Nb per cohort is re-estimated.The full raw data is also used to re-estimate Nb using a sensitivity analysis of loci/individuals. 
+
+The processed Data is found in /Data/processed.
+
+# Confirmation of Issue in Original Manuscript
+
+For this section I follow the approach used by Dani as far as was required to confirm the work of Dean and Paul.
+
+## Setup data
+
+A bug in an R-package used in the original publication is suspected to have introduced inconsistencies into the output files used in the final analysis.
+
+```{r Quantify Error, echo = F, include =T}
+# read in published strata
+strata_info = read.table("Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv", header = T) # used in the published ms 
+
+# read in published genepop file affected by bug - herein refered to as 'orig-genepop'
+orig_gp <- adegenet::read.genepop(file = "Original Project Files/File_Formats/Genepop_NeEstimator_Input/nswdpi_whiteshark_gp.gen", ncode = 3L, quiet = TRUE)
+orig_gl <- dartR::gi2gl(orig_gp)
+
+# it didnt fix the names, so do it here
+orig_gl@loc.names<- sub(".*?-", "", str_replace_all(orig_gl@loc.names,"__","-"))  # change whitelist loci seperators so they are in the fornat needed to match the genlight obj
+
+# 'new_genepop'
+# read in orgional data, and use the list of loci to make a new dataset - herein refered to as 'new-genepop'
+input_gl = dartR::gl.read.dart("Data/Raw/Report_DSha18-3402_SNP_2_ReLabeled.csv")
+# change the GL loci names so they are in a suitable format 
+input_gl@loc.names <- sub("^([^-]*-[^-]*).*", "\\1", input_gl@loc.names)
+# filter the gl to have the same loci as used in 'orig-gp'
+order_loci <- sapply(orig_gl@loc.names, function(x,order){which(order == x)}, order = input_gl@loc.names)
+new_gl <- input_gl[,order_loci]
+# dartR has a bug where it doesnt fix up other information stored in other
+dim(new_gl@other$loc.metrics)
+new_gl@other$loc.metrics <- new_gl@other$loc.metrics[order_loci,]
+# match so the files have the same samples, in the same order
+order_ind <- sapply(orig_gl@ind.names, function(x,order){which(order == x)}, order = str_replace_all(new_gl@ind.names, "_", "-"))
+
+new_gl <- new_gl[order_ind,]
+# check
+dim(new_gl@other$loc.metrics)
+# add the population information, also make sure its in the right order
+pop = dplyr::left_join(tibble::tibble(TARGET_ID=str_replace_all(new_gl@ind.names, "_", "-")), strata_info, by = "TARGET_ID")
+new_gl@pop<- factor(pop$STRATA)
+# check 
+which(head(str_replace_all(new_gl@ind.names, "_", "-")) ==  head(orig_gl@ind.names))
+which(head(orig_gl@loc.names) == head(new_gl@loc.names))
+```
+
+## Quantify differences in missingness between the published and new dataset 
+
+```{r missingness1, message = F, echo = T}
+# compare the old and the new files for missingness
+# print out each genlight to get info on missngness, loci, invidual
+orig_gl
+new_gl
+```
+```{r missingness2, message = F, echo = T}
+# compare the old and the new files for missingness
+# print out each genlight to get info on missngness, loci, invidual
+new_gl
+```
+These results show the number of individuals and the number of loci does not change between the published and the new dataset. However, the number of missing data in the published dataset is 4506, while the re-analysis dataset missingingess is 4503.
+ 
+## Visualise the difference between the published and new dataset 
+
+```{r, message = F, caption = "Visualisation of datasets showing published data (top) and new data (bottom). The colours are inverted, where the new file and old file have the 1st allele listed differently (makes no difference to the final result). However, given the SNP index is the same between files (loci are in the same order), and individuals are supposedly in the same order, it appears the published data has been shuffled or inverted"}
+# visualize the data
+ogplot = adegenet::glPlot(orig_gl, posi="topleft")
+newplot = adegenet::glPlot(new_gl, posi="topleft")
+
+```
+
+## Discussion of error
+
+More details available in Dani's report and Dean and Paul's report.
+
+Main points:
+
+* Error definitely present as described in analyis by Dean and Paul.
+* Error changes data in a way that would be expected to have some impact estimates of Nb
+* Error needs to be corrected
+
+# Corrected Ne Estimates
+
+# New cohort assignment
+
+The new cohort assignment file "Data/Processed/New_Cohort_Assignment.tsv" was created by running the script Scripts/Age_at_Length.R.
+
+The von Bertanlaffy parameters used are from are from @o2011age.
+
+```{r new cohorts, eval = T}
+
+meta_data <- readr::read_csv("Data/Raw/Copy of UPDTAED LAT LONGS UQ genetics PhD181018 Paul Butcher NSW DPI.csv") %>%
+  #select(MBB_Code, FL, TL) %>%
+  mutate(date_column = as.Date(`Date tagged`, format="%d/%m/%y"),
+         modified_year = year(date_column))
+
+# 1. relationship between TL and FL 
+lm1 <- lm(meta_data$TL ~ meta_data$FL)
+
+Tl_intercept <- lm1$coefficients[1]
+Tl_slope <- lm1$coefficients[2]
+
+TL <- sapply(meta_data$FL, function(x) {Tl_intercept + x * Tl_slope }) # eq (1) manuscript 
+
+```
+
+
+```{r new cohorts2, eval = T}
+
+# Estimate age directly using values from O'Connor 2011 and FL
+#solve for age
+
+# Estimating age at length
+# info:
+# Best fitting parmaters for Males
+Linf <- 798.94# cm TL
+k <- 0.047 # 
+L0 <- 140 #cm 
+T0 <- -3.8 #years 
+Males <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# Best fitting paramters for Females 
+Linf<- 719.02# cm TL
+k<- 0.056 # 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Females <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+Linf<- 746.66# cm TL
+k<- 0.053# 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Combined <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# female 
+idx_f<- which(meta_data$Sex == "F")
+idx_m<- which(meta_data$Sex == "M")
+
+male_t = sapply(TL[idx_m], function(x) {vbgf3(x, Males[["L_infinity_value"]], Males[["K_value"]], Males[["t_0_value"]])})
+female_t = sapply(TL[idx_f], function(x) {vbgf3(x, Females[["L_infinity_value"]], Females[["K_value"]], Females[["t_0_value"]])})
+
+# Cohort is equal to year sampled minus age
+male_age = trunc(meta_data$modified_year[idx_m] -  male_t)
+female_age = trunc(meta_data$modified_year[idx_f] -  female_t) # including some samples, ie. MBB1348 depends on how you round the age or the year
+output = tibble::tibble(STRATA = c(male_age, female_age), MBB_CODE = c(meta_data$MBB_Code[idx_m], meta_data$MBB_Code[idx_f]))
+readr::write_tsv(output, "Data/Processed/New_Cohort_Assignment.tsv")
+```
+
+```{r cohort check}
+# check with tropfishR
+#remotes::install_github("tokami/TropFishR")
+t_male_trop = TropFishR::VBGF(L = TL[idx_m], param = list(Linf= Males[[1]], K= Males[[2]], t0 = Males[[4]], L0 = Males[[3]])) # thats age?
+f_female_top = TropFishR::VBGF(L = TL[idx_f], param = list(Linf= Females[[1]], K= Females[[2]], t0 = Females[[4]], L0 = Females[[3]])) # thats age?
+male_age_trop = round(meta_data$modified_year[idx_m] -  t_male_trop)
+female_age_trop = round(meta_data$modified_year[idx_f] -  f_female_top)
+output_trop = tibble::tibble(STRATA = c(male_age_trop, female_age_trop), MBB_CODE = c(meta_data$MBB_Code[idx_m], meta_data$MBB_Code[idx_f]))
+
+# the tropfish results are slightly different????
+```
+
+# New Input files for NeEstimator and COLONY 
+
+Below the input files for NeEstimator and COLONY are remade to make new estimates of Nb using a new file made from the published list of loci ("new_gp").
+
+dartR is used write out a genepop file, and a custom script to write out a COLONY file. 
+
+```{r make new input file, eval = T}
+
+# 1. write out new_gp as a genepop , check that the file has been written out correctly 
+# 1a. run this file through NeEstimator
+
+# first its important to make sure that the cohort are correctly assigned 
+
+cohort_assignment = readr::read_tsv("Data/Processed/New_Cohort_Assignment.tsv") %>% #New cohort assignment
+  separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
+  unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+ind_order = tibble::tibble(MBB_CODE_JOIN = new_gl$ind.names, OLD_STRATA = new_gl@pop) %>%
+  left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
+
+new_gl@pop <- as.factor(ind_order$STRATA)
+
+dartR::gl2genepop(new_gl, outfile = "new.gen", outpath = "Data/Processed/NeEstimator")
+```
+
+```{r write colony, eval = T}
+
+# 2. write the same file to COLONY format , check that the file has been written out correctly 
+# 2b. run this file through COLONY
+
+pops <- radiator::genomic_converter("Data/Processed/NeEstimator/new.gen", filename = "radiator_files/")
+
+for(i in 5:9){
+  year <- i + 2005
+  pops$tidy.data[pops$tidy.data$STRATA == i, ] %>% radiator::write_colony(filename = paste(paste0("Data/Processed/COLONY/COLONY_input", year,".txt")))
+}
+
+```
+
+## Run COLONY
+
+This needs to be done on a Linux Machine. You could do manually if you wanted too.
+
+```{r run colony, eval = T}
+# # to run colony on command line, just make sure colony is installed in the same directory as the f
+# ls *colony > colonyinputfiles.txt
+# parallel -j15 ./Colony/colony2s.ifort.out IFN:{} :::: colonyinputfiles.txt
+
+system("ls")
+
+# #! /bin/bash
+# echo "run the COLONY analysis for 2010 to 2014"
+# 
+# for i in {2010..2014}
+# do
+# echo "running $i ..."
+# 	./colony2s.ifort.out OFN:COLONY_output_"$i".txt IFN:COLONY_input_"$i".txt
+# done
+
+
+
+```
+
+## Run NeEstimator
+
+
+## Run Combination Estimates Code
+
+```{r data2}
+
+data$Var_SA_lower <- 0.25 * data$Nb_SA_est^4 * ((1 / data$Nb_SA_lower) - (1 / data$Nb_SA_est))^2
+data$Var_SA_upper <- 0.25 * data$Nb_SA_est^4 * ((1 / data$Nb_SA_upper) - (1 / data$Nb_SA_est))^2
+data$Var_SA_mean <- ( data$Var_SA_lower + data$Var_SA_upper ) / 2
+data$Var_SA_weight <- 1 / data$Var_SA_mean
+
+
+data$r_LD_lower <- Ne_to_r(data$Nb_LD_lower, data$S) 
+data$r_LD_upper <- Ne_to_r(data$Nb_LD_upper, data$S) 
+data$r_LD_est <- Ne_to_r(data$Nb_LD_est, data$S) 
+
+data$rstar_LD_lower <- Ne_to_r_star(data$Nb_LD_lower, data$S) 
+data$rstar_LD_upper <- Ne_to_r_star(data$Nb_LD_upper, data$S) 
+
+
+data$Var_LD_lower <- (1/36) * data$r_star^-4 * (data$r_star - data$rstar_LD_lower)^2
+data$Var_LD_upper <- (1/36) * data$r_star^-4 * (data$r_star - data$rstar_LD_upper)^2
+data$Var_LD_mean <- ( data$Var_LD_lower + data$Var_LD_upper ) / 2
+data$Var_LD_weight <- 1 / data$Var_LD_mean
+
+data$weight_sum <- data$Var_LD_weight + data$Var_SA_weight
+
+data$Var_LD_weightadj <- data$Var_LD_weight / data$weight_sum
+data$Var_SA_weightadj <- data$Var_SA_weight / data$weight_sum
+
+data$Nb_COM_est <- 1 / ((data$Var_SA_weightadj /data$Nb_SA_est) + (data$Var_LD_weightadj / data$Nb_LD_est))
+data$var_COM <- 1 / ((1/data$Var_LD_mean) + (1/data$Var_SA_mean))
+
+#Not CIs
+data$Nb_COM_lower <- data$Nb_COM_est - sqrt(data$var_COM) 
+data$Nb_COM_upper <- data$Nb_COM_est + sqrt(data$var_COM)
+
+#nice table
+data %>% select(Year, starts_with("Nb_")) -> data_est_only
+data_est_only %>% gt() %>% fmt_number(columns = c(5:10), decimals = 1) 
+
+```
+
+# Results
+
+Outputs of NeEstimator and of Colony are saved in Report/NbResults.xlsx , where jacknife CIs are reported for pcrit = 0.05.
+
+## Summary Plots
+
+```{r plots, echo=FALSE, fig.cap = "Plot of Nb estimates with 95% confidence intervals"}
+width <- 0.2
+SA_col <- "darkblue"
+LD_col <- "darkred"
+COM_col <- "darkgreen"
+dodge <- position_dodge(width=0.5)
+
+data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") %>% filter(est_type != "COM")-> data2
+
+ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ coord_cartesian(ylim = c(0,1000))
+
+```
+
+The combined estimates are also plotted here. The error bars in this case represent +- SD, not a confidence interval. 
+
+```{r plotCOM, echo=FALSE, fig.cap = "Plot of Combined Nb estimates +- SD"}
+
+data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") %>% filter(est_type == "COM")-> data2
+
+ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) + scale_color_manual(values = c(COM_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ ylim(c(0,1000))
+
+```
+
+# Stability
+
+I take stability to mean that there are no significant differences between the Nb estimates for any years, this corresponds to the null hypothesis that Nb_2010 = Nb_2011 = Nb_2012 = Nb_2013.
+
+## LD
+
+The situation is very difficult to evaluate graphically. The point estimates for 2010 and 2014 sit outside the common region (dark grey), but the 2011-2013 estimates (and the entirity of their CIs) lie entirely within the CIs for other years.
+No hard conclusions can be drawn from examining the individual CIs alone.
+
+```{r plots2, echo=FALSE, fig.cap="LD estimates with 95% CIs and values which fall in all CIs marked as a grey rectangle"}
+
+data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") -> data2
+data2 %>% filter(est_type=="LD") %>% summarise(band_lower = max(lower), band_upper = min(upper), band_lower2 = lower[Year==2014], band_upper2 = max(upper)) -> bands
+
+ggplot(data2 %>% filter(est_type=="LD"), aes(x = Year, y = est, group = est_type, colour = est_type)) + 
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower, ymax=bands$band_upper), colour='gray80', alpha=0.1) + 
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower2, ymax=bands$band_upper2), colour='gray100', alpha=0.1) + 
+  geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) +
+  scale_color_manual(values = c(LD_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + coord_cartesian(ylim = c(0,1000))
+```
+
+In order to examine this formally, we will need to construct pairwise tests. This needs to be done with $r^{*}$ as LDNe confidence intervals do not have normal CIs. The confidence intervals for $r^{*}$ in LDNe are approximately normal. This method of comparison is statistically consistent with manner used in the construction of the CIs [cite: Jones, Ovenden and Wang (2016)]. 
+
+A slightly more accurate result could be obtained by pulling the results directly from the LDNe code, and making minor adjustments to account for the fact this is only approximately normal, however I do not believe this would make a difference in this case. 
+
+The following table summarises the pairwise comparisons of the Nb estimates in terms of Nb. The first two columns identify which years are being compared, the third and forth columns state the relevant $r^{*}$ values. 
+
+Their difference and the estimate for the standard deviation of the estimate follow. The combined standard deviation is found by taking the square root of the sum the of the two variances. This assumes both estimates are independent. While it is likely these estimates are correlated with each other, we have no way of accurately estimating their covariance so I believe it is best to assume independence.
+
+The z-score and p-value are based on the ordinary z-test for the difference of two normaly distributed variables. The adjusted p-values are adjusted using the Bonferonni method on the basis that we are making 6 pairwise comparisons and we wish to keep our family-wise error rate below 0.05. None of the unadjusted p-values were significant at the 0.05 level anyway.
+
+```{r stab1, echo=TRUE}
+data$rstar_LD_lower <- Ne_to_r_star(data$Nb_LD_lower, data$S) 
+data$rstar_LD_upper <- Ne_to_r_star(data$Nb_LD_upper, data$S) 
+data$rstar_LD_est <- Ne_to_r_star(data$Nb_LD_est, data$S) 
+data$rstar_sd_mean <- (data$rstar_LD_lower - data$rstar_LD_upper) / (2*qnorm(0.9750))
+
+results_frame <- data.frame("Year1" = NA, "Year2"= NA, "r1"= NA, "r2"= NA, "diff"= NA, "combined sd"= NA, "z-score"= NA, "p-value"= NA) %>% na.omit()
+
+for(i in 1:(nrow(data)-1)){
+  for(j in (i+1):nrow(data)){
+    temp <- c(
+      data$Year[i],
+      data$Year[j],
+      data$rstar_LD_est[i],
+      data$rstar_LD_est[j],
+      data$rstar_LD_est[i]-data$rstar_LD_est[j],
+      sqrt(data$rstar_sd_mean[i]^2 + data$rstar_sd_mean[j]^2), 
+      (data$rstar_LD_est[i]-data$rstar_LD_est[j]) / sqrt(data$rstar_sd_mean[i]^2 + data$rstar_sd_mean[j]^2),
+      1-pnorm(abs(data$rstar_LD_est[i]-data$rstar_LD_est[j]) / sqrt(data$rstar_sd_mean[i]^2 + data$rstar_sd_mean[j]^2))
+      
+    )
+    
+    results_frame[nrow(results_frame) + 1,] <- temp
+  
+  }
+}
+
+results_frame$p.value.adj <- p.adjust(results_frame$p.value, "bonferroni")
+results_frame %>% gt() %>% opt_stylize() %>% fmt_number(columns = c(7:9), decimals = 3) %>% fmt_number(columns = c(3:6), n_sigfig =  3)
+
+```
+
+## SA
+
+With the updated results, the intervals for the SA method are no longer mutually disjoint. Analysis is much the same as for LD now.
+
+```{r plots3, echo=FALSE}
+
+
+data2 %>% filter(est_type=="SA") %>% summarise(band_lower = max(lower), band_upper = min(upper), band_lower2 = 88, band_upper2 = max(upper)) -> bands
+
+
+ggplot(data2 %>% filter(est_type=="SA"), aes(x = Year, y = est, group = est_type, colour = est_type)) +  geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) + scale_color_manual(values = c(SA_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + 
+
+geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower, ymax=bands$band_upper), colour='gray80', alpha=0.1) + 
+  #geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower2, ymax=bands$band_upper2), colour='gray100', alpha=0.1) + 
+  geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) +
+  scale_color_manual(values = c(SA_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + coord_cartesian(ylim = c(0,1000))
+
+
+```
+
+The analysis proceeds in a similar manner as for $r^{*}$. 
+
+```{r stab2, echo=TRUE}
+
+data$Nb_SA_est_inv <- 1 / (2*data$Nb_SA_est)
+
+data$vstar_lower <- ((1/data$Nb_SA_lower - 1/data$Nb_SA_est) / (2*qnorm(0.9750)))^2
+data$vstar_upper <- ((1/data$Nb_SA_est - 1/data$Nb_SA_upper) / (2*qnorm(0.9750)))^2
+
+data$vstar_mean <- (data$vstar_upper+data$vstar_lower)/2
+
+results_frame <- data.frame("Year1" = NA, "Year2"= NA, "2Nb^-1 1"= NA, "2Nb^-1 2"= NA, "diff"= NA, "combined sd"= NA, "z-score"= NA, "p-value"= NA) %>% na.omit()
+
+for(i in 1:(nrow(data)-1)){
+  for(j in (i+1):nrow(data)){
+    temp <- c(
+      data$Year[i],
+      data$Year[j],
+      data$Nb_SA_est_inv[i],
+      data$Nb_SA_est_inv[j],
+      data$Nb_SA_est_inv[i]-data$Nb_SA_est_inv[j],
+      sqrt(data$vstar_mean[i] + data$vstar_mean[j]), 
+      (data$Nb_SA_est_inv[i]-data$Nb_SA_est_inv[j]) / sqrt(data$vstar_mean[i] + data$vstar_mean[j]),
+      1-pnorm(abs(data$Nb_SA_est_inv[i]-data$Nb_SA_est_inv[j]) / sqrt(data$vstar_mean[i] + data$vstar_mean[j]))
+      
+    )
+    
+    results_frame[nrow(results_frame) + 1,] <- temp
+  
+  }
+}
+
+results_frame$p.value.adj <- p.adjust(results_frame$p.value, "bonferroni")
+
+names(results_frame)[3:4] <-c('(2Ne)^-1 1', '(2Ne)^-1 2') 
+results_frame %>% gt() %>% opt_stylize() %>% fmt_number(columns = c(6:9), decimals = 3) %>% fmt_number(columns = c(3:5), n_sigfig =  3)
+
+```
+
+After adjustment for multiple comparisons, there is still a significant difference between 2010 and 2011 (p = 0.045). The situation is somewhat confusing here as the estimates for 2011, 2012 and 2013 are not significantly different from 2010.
+
+I had a number of reservations about this analysis, but I have included this analysis as I believe it is important.
+
+These issues are:
+
+- I am much less familiar with the CIs for COLONY than for LDNe
+- The accuracy of extracting the variance from the CI bounds was very high, at the time of the original paper I put this down to the fact it rounds to whole numbers, but I'm not longer sure
+- The estimate for 2010 has the narrowest CI bounds while having the lowest sample size. This is 'correct' and is based on the high number of sibling pairs assigned by COLONY.
+- I have not been able to spend as much time checking this as I would like
+
+# Trends
+
+I have also tested for (linear) trends. With only, five points the power to detect a trend is very low, but I think the exercise is worthwhile.
+
+## LD
+
+```{r trend1, echo=TRUE}
+
+ols <- lm(Nb_LD_est ~ Year, data=data_est_only)
+
+lmfit <- broom::augment(ols, se_fit = TRUE, interval='confidence')
+```
+
+Using the method of Luikart et al 2020 (i.e. ordinary least squares regression on the Nb_LD estimates) there is no significant trend (p-value = `r round(summary(ols)$coefficients[2,4],3)`). We can also see this graphically as the CI for the trendline (grey shaded area) includes the possibility of a flat line (i.e. slope=0, no trend).
+
+```{r trend1_plot, echo=FALSE}
+ggplot(lmfit, aes(x = Year)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) + geom_point(aes(y=Nb_LD_est)) + geom_line(aes(y=.fitted), col=LD_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb_LD + OLS trend")+ coord_cartesian(ylim = c(0,500))
+
+```
+
+```{r trend4, echo=TRUE}
+
+gls3 <- nlme::gls(Nb_LD_est ~ Year, correlation=corCAR1(0.5, form = ~ 1, fixed=TRUE),  method='REML', verbose=TRUE, data=data)
+
+# Design matrix for our observations ,, 
+xmat <- model.matrix(~ Year, data=data)
+
+# Regression coefficients
+betahat <- coef(gls3)
+
+glsfit <- broom.mixed::augment(gls3)
+
+Sigmahat <- vcov(gls3)
+#https://fw8051statistics4ecologists.netlify.app/gls.html
+# var/cov(beta0 + beta1*X)
+varcovhat<-xmat%*%Sigmahat%*%t(xmat)
+SEline <- sqrt(diag(varcovhat))
+
+glsfit$.upper <- glsfit$.fitted + qnorm(0.975) * SEline
+glsfit$.lower <- glsfit$.fitted - qnorm(0.975) * SEline
+
+```
+
+Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`). This model only accounts for correlation and is not the only possible way to do this. 
+It doesn't resolve any of the other issues such as asymetric CIs, or incorporate other known information such as the variances of each estimate. However these tests for a trend are likely suitable here as 4 points are very unlikely to show evidence of a trend regardless.
+
+```{r trend4_plot, echo=FALSE}
+ggplot(glsfit, aes(x = Year)) + geom_point(aes(y=Nb_LD_est)) + geom_line(aes(y=.fitted), col=LD_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb LD with GLS trend (AR1 correlation only)") + coord_cartesian(ylim = c(0,500)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) 
+
+```
+
+## SA
+
+The same analysis can be repeated with the SA estimates.
+
+```{r trend1SA, echo=TRUE}
+
+ols <- lm(Nb_SA_est ~ Year, data=data_est_only)
+
+lmfit <- broom::augment(ols, se_fit = TRUE, interval='confidence')
+```
+
+Using the method of Luikart et al 2020 (i.e. ordinary least squares regression on the Nb_LD estimates) there is no significant trend (p-value = `r round(summary(ols)$coefficients[2,4],3)`).
+
+```{r trend1SA_plot, echo=FALSE}
+ggplot(lmfit, aes(x = Year)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) + geom_point(aes(y=Nb_SA_est)) + geom_line(aes(y=.fitted), col=SA_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb_SA + OLS trend")+ coord_cartesian(ylim = c(0,500))
+
+```
+
+
+```{r trend5, echo=TRUE}
+
+gls3 <- nlme::gls(Nb_SA_est ~ Year, correlation=corCAR1(0.5, form = ~ 1, fixed=TRUE),  method='REML', verbose=TRUE, data=data)
+
+# Design matrix for our observations ,, 
+xmat <- model.matrix(~ Year, data=data)
+
+# Regression coefficients
+betahat <- coef(gls3)
+
+glsfit <- broom.mixed::augment(gls3)
+
+Sigmahat <- vcov(gls3)
+#https://fw8051statistics4ecologists.netlify.app/gls.html
+# var/cov(beta0 + beta1*X)
+varcovhat<-xmat%*%Sigmahat%*%t(xmat)
+SEline <- sqrt(diag(varcovhat))
+
+glsfit$.upper <- glsfit$.fitted + qnorm(0.975) * SEline
+glsfit$.lower <- glsfit$.fitted - qnorm(0.975) * SEline
+
+```
+
+Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`).
+
+```{r trend5_plot, echo=FALSE}
+ggplot(glsfit, aes(x = Year)) + geom_point(aes(y=Nb_SA_est)) + geom_line(aes(y=.fitted), col=SA_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb SA with GLS trend (AR1 correlation only)") + coord_cartesian(ylim = c(0,500)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) 
+
+```
+
+# Discussion
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+  
+# References
