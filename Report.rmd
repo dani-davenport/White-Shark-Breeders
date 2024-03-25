@@ -357,9 +357,8 @@ clean_up_radiator_temp_files()
 #may actually work on other machines (e.g. non M chip Macs) if correct file is placed and relevant changes made
 
 colony_files <- list.files("./Data/Processed/COLONY/")
-#colony_files <- colony_files[-(1:2)]
-
 absolute_path <- getwd() 
+
 for (c_f_i in colony_files){
 
   c_f_o <- str_replace(c_f_i, "input", "output")
