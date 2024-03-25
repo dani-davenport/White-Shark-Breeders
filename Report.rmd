@@ -19,12 +19,16 @@ knitr::opts_chunk$set(dpi = 400,
 
 library(dartR)
 library(tidyverse)
-library(ggplot2)
-library(here)
 library(hierfstat)
-library(readxl)
 library(gt)
 library(nlme)
+#remotes::install_github("thierrygosselin/radiator")
+library(radiator)
+
+library(ggplot2)
+library(here)
+library(readxl)
+
 
 library(dplyr)
 library(tidyr)
@@ -33,8 +37,7 @@ library(readr)
 library(stringr)
 
 #install.packages("remotes")
-#remotes::install_github("thierrygosselin/radiator")
-library(radiator)
+
 
 #adjust these if you want the relevant chunks to run
 rerun_COLONY <- FALSE
@@ -118,6 +121,7 @@ which(head(orig_gl@loc.names) == head(new_gl@loc.names))
 orig_gl
 new_gl
 ```
+
 ```{r missingness2, message = F, echo = T}
 # compare the old and the new files for missingness
 # print out each genlight to get info on missngness, loci, invidual
@@ -250,10 +254,11 @@ dartR::gl2genepop(new_gl, outfile = "new.gen", outpath = "Data/Processed/NeEstim
 
 pops <- radiator::genomic_converter("Data/Processed/NeEstimator/new.gen")
 
+
 clean_up_radiator_temp_files <- function(){
   #clean these up because its gets annoying when they build up
   radiator_temp_files <- c(str_extract(list.files(), "-[0-9]{3}_radiator_genomic_converter_.*"),
-                           str_extract(list.files(), "-[0-9]{3}_filter_monomorphic_.*"))          
+                           str_extract(list.files(), "-[0-9]{1,3}_filter_monomorphic_.*"))          
                                      
   radiator_temp_files <- radiator_temp_files[!is.na(radiator_temp_files)]
   unlink(file.path(".", radiator_temp_files), recursive = TRUE, force = TRUE)
@@ -262,7 +267,7 @@ clean_up_radiator_temp_files <- function(){
 clean_up_radiator_temp_files()
 ```
 
-```{r write colony, eval = T}
+```{r write colony, eval = T, echo=F}
 #params for colony
 
 #run_length <- 2  #3. is long, 4 is very long, 2 is probably fine for this. is mainly about stability
@@ -302,7 +307,7 @@ COLONY_sims_list <- list(
 )
 
 
-
+source("colony_script.R") #radiator had bug (crazy I know) so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
 
 # For  the   sockeye salmon dataset, it  emerges that   microsatellites have    higher mistyping rates    than    SNPs    (Supporting Information). On average across    loci,   the   estimated null   allele    (or dropout) rate   and   false allele    rate   are   3.1%    and   1.2%    for  microsatellites, 1.1%    and   0.1%    for SNPs.    For  both    types    of  markers, false    alleles    are   much    less   frequent than   null   alleles    or allelic    dropouts. This   error   pattern is  in  contrast with that   in  the   ant   dataset and   the   spectacled caiman dataset, where    false alleles    are   the   predominant type    of  genotyping errors. 
 
@@ -310,25 +315,26 @@ for(j in seq_len(length(COLONY_sims_list))){
   
   for(i in 5:9){
     year <- i + 2005
-    colony_filename <- paste(paste0("Data/Processed/COLONY/COLONY_input_",names(COLONY_sims_list[j]),"_", year,".txt"))
+    colony_filename <- paste0("Data/Processed/COLONY/COLONY_input_", names(COLONY_sims_list[j]) ,"_", year,".txt")
     
     pops$tidy.data %>% 
-      radiator::write_colony(
+      write_colony2(verbose=T, 
         pop.select = i,
-        error.rate = COLONY_sims_list[j]$error_rate, 
-        allele.freq = COLONY_sims_list[j]$allele_freq,
+        error.rate = 0.1,
+        allele.freq = COLONY_sims_list[[j]]$allele_freq,
         filename = colony_filename,
         inbreeding = 0, #default, HWE
         mating.sys.males = 0, #default, poly
         mating.sys.females = 0, #default, poly
         clone = 0, #default, only an issue in a species with clones + low marker numbers
-        run.length = COLONY_sims_list[j]$run_length,
+        run.length = COLONY_sims_list[[j]]$run_length,
         analysis = 1, #default, full likelihood, is most accurate
-       allelic.dropout = COLONY_sims_list[j]$dropout,
-       random.seed = COLONY_sims_list[j]$random_seed
+        allelic.dropout = COLONY_sims_list[[j]]$dropout,
+       random.seed = COLONY_sims_list[[j]]$random_seed
       )
   }
 }
+
 clean_up_radiator_temp_files()
   
 #other settings left as default
