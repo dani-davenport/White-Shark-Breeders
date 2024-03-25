@@ -34,10 +34,11 @@ library(stringr)
 
 
 #remotes::install_github("thierrygosselin/radiator")
-#remotes::install_github("tokami/TropFishR")
-library(TropFishR)
 library(radiator)
 
+#adjust these if you want the relevant chunks to run
+rerun_COLONY <- FALSE
+rerun_LDNE <- FALSE
 
 ```
 
@@ -340,11 +341,13 @@ clean_up_radiator_temp_files()
 
 ## Run COLONY
 
-```{r run colony, eval = T, echo=F}
+```{r run colony, eval = rerun_COLONY, echo=F}
 
 #Simply will not run on M1-M3 Macs
 #No idea about Windows
 #This section is set up for running on Linux only
+#colony2s.ifort.out needs to be in "./Executables/COLONY"
+#may actually work on other machines (e.g. non M chip Macs) if correct file is placed and relevant changes made
 
 colony_files <- list.files("./Data/Processed/COLONY/")
 absolute_path <- getwd() 
@@ -396,11 +399,13 @@ write_csv(All_COLONY_data, "./Results/COLONY/COLONY/ResultsSummary.csv")
 
 ```{r pickcolony, eval = T}
 Nb_SA_data <- All_COLONY_data %>% filter(Scenario = "scenario_1") #need to pick one(1)
+write_csv(Nb_SA_data, "./Results/COLONY/COLONY/ResultsSummary_final.csv")
 ```
 
 ## Run NeEstimator
 
-```{r run LDNe, eval = T}
+```{r run LDNe, eval = rerun_LDNE}
+#this should run on any machine so long as the executables are in "./Executables/NeEstimator"
 
 p_crit <- c(0.05) 
 
@@ -443,6 +448,12 @@ write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary.csv")
 
 ## Cobmine and Save All Estimates Code
 ```{r data_comb}
+
+#read in from file so always works even if not a full rerun
+Nb_LD_data <- read_csv( "./Results/NeEstimator/NeResultsSummary.csv")
+Nb_LSA_data <- read_csv( "./Results/COLONY/ResultsSummary_final.csv")
+
+#join and save
 data <- left_join(Nb_LD_data, Nb_SA_data, by="Year")
 write_csv(data, "./Results/ResultsSummary.csv")
 ```
@@ -450,6 +461,8 @@ write_csv(data, "./Results/ResultsSummary.csv")
 ## Run Combination Estimates Code
 
 ```{r data2}
+
+data <- read_csv( "./Results/ResultsSummary.csv")
 
 Ne_to_r <- function(Ne, S){
   r <- (-69*S^2 + sqrt(10000 * (S^4) * (Ne^2) + 4761 * (S^4) - 248400*(S^3)*Ne) + 1800*S*(Ne^2))/( 1800*(S^2)*(Ne^2))  
