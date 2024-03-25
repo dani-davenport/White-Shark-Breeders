@@ -340,25 +340,26 @@ clean_up_radiator_temp_files()
 
 ## Run COLONY
 
-```{r run colony, eval = T}
+```{r run colony, eval = T, echo=F}
 
 #Simply will not run on M1-M3 Macs
 #No idea about Windows
 #This section is set up for running on Linux only
 
 colony_files <- list.files("./Data/Processed/COLONY/")
-
+absolute_path <- getwd() 
 for (c_f_i in colony_files){
+
+  c_f_o <- str_replace(c_f_i, "input", "output")
   
-  c_f_o <- str_replace(c_f_i, "input", "ouput")
-  #copy input to right folder
-  system(paste0("cp ./Data/Processed/COLONY/", c_f_o, " ./Executables/COLONY/", c_f_i))
   #run COLONY
-  system(paste0("./Executables/COLONY/colony2s.ifort.out OFN:", c_f_o," IFN:", c_f_i))
+  system(paste0(absolute_path, "/Executables/COLONY/colony2s.ifort.out OFN:", absolute_path, "/Executables/COLONY/", c_f_o," IFN:", absolute_path, "/Data/Processed/COLONY/", c_f_i))
+ 
   #copy the Ne results to the results folder
-  system(paste0("cp ./Executables/COLONY/", c_f_o, ".Ne ./Results/COLONY/", c_f_o))
-  #clean up everything
-  system("find ./Executables/COLONY/ ! -name 'colony2s.ifort.out' -type f -exec rm -f {} +")
+  system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".Ne ", absolute_path, "/Results/COLONY/", c_f_o))
+  
+  #clean up everything, COLONY creates lot of junk files
+  system(paste0("find ", absolute_path, "/Executables/COLONY/ ! -name 'colony2s.ifort.out' -type f -exec rm -f {} +"))
 }
 
 ```
@@ -387,13 +388,13 @@ for (i in seq_len(length(colony_results_files))){
   col_list[[i]] <- data.frame(Year, Scenario, Nb_SA_est, Nb_SA_lower, Nb_SA_upper)
 }
 
-All_COLONY_data <- bind_rows(df_list) %>% filter(Year >= 2010, Year <= 2014)
+All_COLONY_data <- bind_rows(col_list) %>% filter(Year >= 2010, Year <= 2014)
 
 write_csv(All_COLONY_data, "./Results/COLONY/COLONY/ResultsSummary.csv")
 
 ```
 
-```{r readcolony, eval = T}
+```{r pickcolony, eval = T}
 Nb_SA_data <- All_COLONY_data %>% filter(Scenario = "scenario_1") #need to pick one(1)
 ```
 
