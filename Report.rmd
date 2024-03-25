@@ -346,8 +346,55 @@ clean_up_radiator_temp_files()
 #No idea about Windows
 #This section is set up for running on Linux only
 
+colony_files <- list.files("./Data/Processed/COLONY/")
+
+for (c_f_i in colony_files){
+  
+  c_f_o <- str_replace(c_f_i, "input", "ouput")
+  #copy input to right folder
+  system(paste0("cp ./Data/Processed/COLONY/", c_f_o, " ./Executables/COLONY/", c_f_i))
+  #run COLONY
+  system(paste0("./Executables/COLONY/colony2s.ifort.out OFN:", c_f_o," IFN:", c_f_i))
+  #copy the Ne results to the results folder
+  system(paste0("cp ./Executables/COLONY/", c_f_o, ".Ne ./Results/COLONY/", c_f_o))
+  #clean up everything
+  system("find ./Executables/COLONY/ ! -name 'colony2s.ifort.out' -type f -exec rm -f {} +")
+}
+
+```
 
 
+```{r readcolony, eval = T}
+#need to read COLONY data in from files
+
+colony_results_files <- list.files("./Results/COLONY/")
+# Ne      =            96
+# CI95(L) =            57
+# CI95(U) =           198
+
+col_list <- list()
+for (i in seq_len(length(colony_results_files))){
+  c_r_f <- colony_results_files[i]
+  res <- readLines(file.path("./Results/COLONY/", c_r_f))
+  temp <- str_match(c_r_f, "^COLONY_output_(scenario_[0-9]+)_([0-9]{4}).txt$")
+  
+  Year <- temp[2]
+  Scenario <- temp[3]
+  Nb_SA_est <- as.numeric(na.omit(str_match(res, "^Ne\\s+=\\s+([0-9]+)$")[, 2])[1]) 
+  Nb_SA_upper <- as.numeric(na.omit(str_match(res, "^CI95\\(U\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
+  Nb_SA_lower <- as.numeric(na.omit(str_match(res, "^CI95\\(L\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
+  
+  col_list[[i]] <- data.frame(Year, Scenario, Nb_SA_est, Nb_SA_lower, Nb_SA_upper)
+}
+
+All_COLONY_data <- bind_rows(df_list) %>% filter(Year >= 2010, Year <= 2014)
+
+write_csv(All_COLONY_data, "./Results/COLONY/COLONY/ResultsSummary.csv")
+
+```
+
+```{r readcolony, eval = T}
+Nb_SA_data <- All_COLONY_data %>% filter(Scenario = "scenario_1") #need to pick one(1)
 ```
 
 ## Run NeEstimator
@@ -395,7 +442,7 @@ write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary.csv")
 
 ## Cobmine and Save All Estimates Code
 ```{r data_comb}
-data <- left_join(Nb_LD_data, COLONY_data, by="Year")
+data <- left_join(Nb_LD_data, Nb_SA_data, by="Year")
 write_csv(data, "./Results/ResultsSummary.csv")
 ```
 
