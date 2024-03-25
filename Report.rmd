@@ -40,8 +40,8 @@ library(stringr)
 
 
 #adjust these if you want the relevant chunks to run
-rerun_COLONY <- FALSE
-rerun_LDNE <- FALSE
+rerun_COLONY <- T
+rerun_LDNE <- T
 
 ```
 
@@ -332,10 +332,11 @@ for(j in seq_len(length(COLONY_sims_list))){
         allelic.dropout = COLONY_sims_list[[j]]$dropout,
        random.seed = COLONY_sims_list[[j]]$random_seed
       )
+    clean_up_radiator_temp_files()
   }
 }
 
-clean_up_radiator_temp_files()
+
   
 #other settings left as default
 #Sibship size prior.To use the prior, you are asked to provide the (estimated) average paternal (np) and maternal (nm) sibship size, and the value of x. When one has no idea of the average sibship size, use x=0 (No prior) and you are not asked about the np and nm values. Otherwise, use x=0.25, 0.5 and 1.0 when your confidence in the provided np and nm values is low, medium and high respectively
