@@ -1,5 +1,5 @@
 ---
-title: "White Shark Number of Breeders Re-Analysis 2022"
+title: "White Shark Number of Breeders Re-Analysis 2024"
 author: "Andrew Jones"
 bibliography: bib.bib
 output: html_document 
@@ -38,7 +38,6 @@ library(stringr)
 library(TropFishR)
 library(radiator)
 
-source(utility_functions.R)
 
 ```
 
@@ -174,7 +173,10 @@ TL <- sapply(meta_data$FL, function(x) {Tl_intercept + x * Tl_slope }) # eq (1) 
 
 # Estimate age directly using values from O'Connor 2011 and FL
 #solve for age
-
+vbgf3 <- function(L, L_infinity, K_value, t_0) {
+  result <- t_0 - (1 / K_value) * log(1 - (L / L_infinity))
+  return(result)
+}
 # Estimating age at length
 # info:
 # Best fitting parmaters for Males
@@ -247,37 +249,92 @@ new_gl@pop <- as.factor(ind_order$STRATA)
 dartR::gl2genepop(new_gl, outfile = "new.gen", outpath = "Data/Processed/NeEstimator")
 ```
 
-```{r write colony, eval = T}
-
+```{r write colony part1 , eval = T}
 # 2. write the same file to COLONY format , check that the file has been written out correctly 
 # 2b. run this file through COLONY
 
-pops <- radiator::genomic_converter("Data/Processed/NeEstimator/new.gen", filename = "radiator_files/")
+pops <- radiator::genomic_converter("Data/Processed/NeEstimator/new.gen")
+
+clean_up_radiator_temp_files <- function(){
+  #clean these up because its gets annoying when they build up
+  radiator_temp_files <- c(str_extract(list.files(), "-[0-9]{3}_radiator_genomic_converter_.*"),
+                           str_extract(list.files(), "-[0-9]{3}_filter_monomorphic_.*"))          
+                                     
+  radiator_temp_files <- radiator_temp_files[!is.na(radiator_temp_files)]
+  unlink(file.path(".", radiator_temp_files), recursive = TRUE, force = TRUE)
+}
+
+clean_up_radiator_temp_files()
+```
+
+```{r write colony, eval = T}
+
+#params for colony
+
+run_length <- 2  #3. is long, 4 is very long, 2 is probably fine for this. is mainly about stability
+
+#allele.freq = NULL #as in originals
+allele_freq = "overall" #compute from whole population
+
+#From Wang 2018
+dropout	<- 0.011
+error_rate <- 0.001
+# 
+# #in between 1
+# dropout	<- 0.004
+# error_rate <- 0.007
+# 
+# #in between 2
+# dropout	<- 0.007
+# error_rate <- 0.014
+# 
+# #defaults (what was used originally)
+# dropout	<- 0
+# error_rate <- 0.02
+
+
+
+# For  the   sockeye salmon dataset, it  emerges that   microsatellites have    higher mistyping rates    than    SNPs    (Supporting Information). On average across    loci,   the   estimated null   allele    (or dropout) rate   and   false allele    rate   are   3.1%    and   1.2%    for  microsatellites, 1.1%    and   0.1%    for SNPs.    For  both    types    of  markers, false    alleles    are   much    less   frequent than   null   alleles    or allelic    dropouts. This   error   pattern is  in  contrast with that   in  the   ant   dataset and   the   spectacled caiman dataset, where    false alleles    are   the   predominant type    of  genotyping errors. 
+
 
 for(i in 5:9){
   year <- i + 2005
-  pops$tidy.data[pops$tidy.data$STRATA == i, ] %>% radiator::write_colony(filename = paste(paste0("Data/Processed/COLONY/COLONY_input", year,".txt")))
+  colony_filename <- paste(paste0("Data/Processed/COLONY/COLONY_input", year,".txt"))
+  
+  pops$tidy.data %>% 
+    radiator::write_colony(
+      pop.select = i,
+      error.rate = error_rate, 
+      allele_freq = NULL,
+      filename = colony_filename,
+      inbreeding = 0, #default, HWE
+      mating.sys.males = 0, #default, poly
+      mating.sys.females = 0, #default, poly
+      clone = 0, #default, only an issue in a species with clones + low marker numbers
+      run.length = run_length,
+      analysis = 1, #default, full likelihood, is most accurate
+     allelic.dropout = dropout	
+    )
 }
 
+clean_up_radiator_temp_files()
+  
+#other settings left as default
+#Sibship size prior.To use the prior, you are asked to provide the (estimated) average paternal (np) and maternal (nm) sibship size, and the value of x. When one has no idea of the average sibship size, use x=0 (No prior) and you are not asked about the np and nm values. Otherwise, use x=0.25, 0.5 and 1.0 when your confidence in the provided np and nm values is low, medium and high respectively
+#Number of runs.
+#can run multiple times manually and collect results anyway
+#Sibship size scaling - only issue with hundreds of sibs
+#Update allele frequency:   dont. From the user guide " I suggest not updating allele frequencies except when family sizes (unknown) are suspected to be large (relative to sample size) and highly variable."
+  
 ```
 
 ## Run COLONY
 
 ```{r run colony, eval = T}
-# # to run colony on command line, just make sure colony is installed in the same directory as the f
-# ls *colony > colonyinputfiles.txt
-# parallel -j15 ./Colony/colony2s.ifort.out IFN:{} :::: colonyinputfiles.txt
 
-system("ls")
-
-# #! /bin/bash
-# echo "run the COLONY analysis for 2010 to 2014"
-# 
-# for i in {2010..2014}
-# do
-# echo "running $i ..."
-# 	./colony2s.ifort.out OFN:COLONY_output_"$i".txt IFN:COLONY_input_"$i".txt
-# done
+#Simply will not run on M1-M3 Macs
+#No idea about Windows
+#This section is set up for running on Linux only
 
 
 
@@ -285,7 +342,23 @@ system("ls")
 
 ## Run NeEstimator
 
-```{r run colony, eval = T}
+```{r run LDNe, eval = T}
+
+p_crit <- c(0.01, 0.02, 0.05) 
+Ne_res <- gl.LDNe(
+  new_gl,
+  outfile = "NeEstimatorResults.txt",
+  outpath = "./Results/NeEstimator",
+  neest.path = "./Executables/NeEstimator",
+  critical = p_crit,
+  singleton.rm = TRUE,
+  mating = "random",
+  plot.out = FALSE
+)
+
+
+
+
 
 ```
 
