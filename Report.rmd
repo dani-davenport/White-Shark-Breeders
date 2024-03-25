@@ -163,8 +163,11 @@ lm1 <- lm(meta_data$TL ~ meta_data$FL)
 
 Tl_intercept <- lm1$coefficients[1]
 Tl_slope <- lm1$coefficients[2]
+#
+Tl_intercept <- floor(Tl_intercept * 100) / 100
+Tl_slope <- floor(Tl_slope * 100) / 100 # eq (1) manuscript , round down to two decimal places
 
-TL <- sapply(meta_data$FL, function(x) {Tl_intercept + x * Tl_slope }) # eq (1) manuscript 
+TL <- sapply(meta_data$FL, function(x) {Tl_intercept + x * Tl_slope}) # eq (1) manuscript 
 
 ```
 
@@ -213,18 +216,6 @@ output = tibble::tibble(STRATA = c(male_age, female_age), MBB_CODE = c(meta_data
 readr::write_tsv(output, "Data/Processed/New_Cohort_Assignment.tsv")
 ```
 
-```{r cohort check}
-# check with tropfishR
-#remotes::install_github("tokami/TropFishR")
-t_male_trop = TropFishR::VBGF(L = TL[idx_m], param = list(Linf= Males[[1]], K= Males[[2]], t0 = Males[[4]], L0 = Males[[3]])) # thats age?
-f_female_top = TropFishR::VBGF(L = TL[idx_f], param = list(Linf= Females[[1]], K= Females[[2]], t0 = Females[[4]], L0 = Females[[3]])) # thats age?
-male_age_trop = round(meta_data$modified_year[idx_m] -  t_male_trop)
-female_age_trop = round(meta_data$modified_year[idx_f] -  f_female_top)
-output_trop = tibble::tibble(STRATA = c(male_age_trop, female_age_trop), MBB_CODE = c(meta_data$MBB_Code[idx_m], meta_data$MBB_Code[idx_f]))
-
-# the tropfish results are slightly different????
-```
-
 # New Input files for NeEstimator and COLONY 
 
 Below the input files for NeEstimator and COLONY are remade to make new estimates of Nb using a new file made from the published list of loci ("new_gp").
@@ -238,18 +229,21 @@ dartR is used write out a genepop file, and a custom script to write out a COLON
 
 # first its important to make sure that the cohort are correctly assigned 
 
+#some sharks no cohort - why ?no meta data?
+
 cohort_assignment = readr::read_tsv("Data/Processed/New_Cohort_Assignment.tsv") %>% #New cohort assignment
   separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
   unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+
 ind_order = tibble::tibble(MBB_CODE_JOIN = new_gl$ind.names, OLD_STRATA = new_gl@pop) %>%
   left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
 
 new_gl@pop <- as.factor(ind_order$STRATA)
-
+table(new_gl@pop)
 dartR::gl2genepop(new_gl, outfile = "new.gen", outpath = "Data/Processed/NeEstimator")
 ```
 
-```{r write colony part1 , eval = T}
+```{r write colony part1, eval = T}
 # 2. write the same file to COLONY format , check that the file has been written out correctly 
 # 2b. run this file through COLONY
 
@@ -360,22 +354,49 @@ clean_up_radiator_temp_files()
 
 ```{r run LDNe, eval = T}
 
-p_crit <- c(0.01, 0.02, 0.05) 
-Ne_res <- gl.LDNe(
-  new_gl,
-  outfile = "NeEstimatorResults.txt",
-  outpath = "./Results/NeEstimator",
-  neest.path = "./Executables/NeEstimator",
-  critical = p_crit,
-  singleton.rm = FALSE,
-  mating = "random",
-  plot.out = FALSE
-)
+p_crit <- c(0.05) 
+
+Ne_res <- list()
+
+for(year in 2010:2014){
+  gl_temp <- gl.keep.pop(new_gl, as.character(year), verbose = 0)
+
+  Ne_res <- c(Ne_res, gl.LDNe(
+    gl_temp,
+    neest.path = "./Executables/NeEstimator",
+    critical = p_crit,
+    singleton.rm = FALSE,
+    mating = "random",
+    plot.out = FALSE,
+    verbose = 0
+  ))
+  
+}
 
 
+df_list <- list()
+for(i in seq_len(length(Ne_res))){
+  
+  Year <- str_extract(names(Ne_res[i]), "[0-9]{4}")
+  S <- sum(new_gl$pop==Year)
+  Nb_LD_est <- as.numeric(Ne_res[[i]]$`Frequency 1`[6])
+  Nb_LD_lower <- as.numeric(Ne_res[[i]]$`Frequency 1`[9])
+  Nb_LD_upper <- as.numeric(Ne_res[[i]]$`Frequency 1`[10])
+  r_star <- as.numeric(Ne_res[[i]]$`Frequency 1`[4])-as.numeric(Ne_res[[i]]$`Frequency 1`[5]) #ideally would get from Burrows File but this should be close enough
+  
+  df_list[[i]] <- data.frame(Year, S, Nb_LD_est, Nb_LD_lower, Nb_LD_upper, r_star)			
+}
 
+Nb_LD_data <- bind_rows(df_list) %>% filter(Year >= 2010, Year <= 2014)
 
+write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary.csv")
 
+```
+
+## Cobmine and Save All Estimates Code
+```{r data_comb}
+data <- left_join(Nb_LD_data, COLONY_data, by="Year")
+write_csv(data, "./Results/ResultsSummary.csv")
 ```
 
 ## Run Combination Estimates Code
