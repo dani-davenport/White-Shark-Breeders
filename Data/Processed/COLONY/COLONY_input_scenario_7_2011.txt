@@ -1,5 +1,5 @@
 `My first COLONY run`                ! Dataset name
-Data/Processed/COLONY/COLONY_input2011.txt          ! Output file name
+Data/Processed/COLONY/COLONY_input_scenario_7_2011.txt          ! Output file name
 42                                  ! Number of offspring in the sample
 3288                                 ! Number of loci
 1234                                 ! Seed for random number generator

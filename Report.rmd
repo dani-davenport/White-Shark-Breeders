@@ -268,17 +268,16 @@ clean_up_radiator_temp_files()
 ```
 
 ```{r write colony, eval = T}
-
 #params for colony
 
-run_length <- 2  #3. is long, 4 is very long, 2 is probably fine for this. is mainly about stability
+#run_length <- 2  #3. is long, 4 is very long, 2 is probably fine for this. is mainly about stability
 
 #allele.freq = NULL #as in originals
-allele_freq = "overall" #compute from whole population
+#allele_freq = "overall" #compute from whole population
 
-#From Wang 2018
-dropout	<- 0.011
-error_rate <- 0.001
+# #From Wang 2018
+# dropout	<- 0.011
+# error_rate <- 0.001
 # 
 # #in between 1
 # dropout	<- 0.004
@@ -293,30 +292,47 @@ error_rate <- 0.001
 # error_rate <- 0.02
 
 
+COLONY_sims_list <- list(
+  scenario_1 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02), #original
+  scenario_2 = list(run_length=2, allele_freq = "overall", dropout = 0, error_rate = 0.02), #original with overall allele ests
+  scenario_3 = list(run_length=2, allele_freq = NULL, dropout = 0.011, error_rate = 0.001), #rates from Wang 2018
+  scenario_4 = list(run_length=2, allele_freq = "overall", dropout = 0.011, error_rate = 0.001), #rates from Wang 2018 with overall allele ests
+  scenario_5 = list(run_length=2, allele_freq = NULL, dropout = 0.004, error_rate = 0.007), #inbetween scenario 1
+  scenario_6 = list(run_length=2, allele_freq = "overall", dropout = 0.004, error_rate = 0.007), #inbetween scenario 1 with overall allele ests
+  scenario_7 = list(run_length=2, allele_freq = NULL, dropout = 0.007, error_rate = 0.014), #inbetween scenario 2
+  scenario_8 = list(run_length=2, allele_freq = "overall", dropout = 0.007, error_rate = 0.014),
+  scenario_9 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02), #original long run
+  scenario_10 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02), #original long run
+  scenario_11 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02) #original med run, same as scenario 1. See if 2 vs 3 makes a difference here
+)
+
+
+
 
 # For  the   sockeye salmon dataset, it  emerges that   microsatellites have    higher mistyping rates    than    SNPs    (Supporting Information). On average across    loci,   the   estimated null   allele    (or dropout) rate   and   false allele    rate   are   3.1%    and   1.2%    for  microsatellites, 1.1%    and   0.1%    for SNPs.    For  both    types    of  markers, false    alleles    are   much    less   frequent than   null   alleles    or allelic    dropouts. This   error   pattern is  in  contrast with that   in  the   ant   dataset and   the   spectacled caiman dataset, where    false alleles    are   the   predominant type    of  genotyping errors. 
 
-
-for(i in 5:9){
-  year <- i + 2005
-  colony_filename <- paste(paste0("Data/Processed/COLONY/COLONY_input", year,".txt"))
+for(j in seq_len(length(COLONY_sims_list))){
   
-  pops$tidy.data %>% 
-    radiator::write_colony(
-      pop.select = i,
-      error.rate = error_rate, 
-      allele_freq = NULL,
-      filename = colony_filename,
-      inbreeding = 0, #default, HWE
-      mating.sys.males = 0, #default, poly
-      mating.sys.females = 0, #default, poly
-      clone = 0, #default, only an issue in a species with clones + low marker numbers
-      run.length = run_length,
-      analysis = 1, #default, full likelihood, is most accurate
-     allelic.dropout = dropout	
-    )
+  for(i in 5:9){
+    year <- i + 2005
+    colony_filename <- paste(paste0("Data/Processed/COLONY/COLONY_input_",names(COLONY_sims_list[j]),"_", year,".txt"))
+    
+    pops$tidy.data %>% 
+      radiator::write_colony(
+        pop.select = i,
+        error.rate = error_rate, 
+        allele_freq = NULL,
+        filename = colony_filename,
+        inbreeding = 0, #default, HWE
+        mating.sys.males = 0, #default, poly
+        mating.sys.females = 0, #default, poly
+        clone = 0, #default, only an issue in a species with clones + low marker numbers
+        run.length = run_length,
+        analysis = 1, #default, full likelihood, is most accurate
+       allelic.dropout = dropout	
+      )
+  }
 }
-
 clean_up_radiator_temp_files()
   
 #other settings left as default
@@ -351,7 +367,7 @@ Ne_res <- gl.LDNe(
   outpath = "./Results/NeEstimator",
   neest.path = "./Executables/NeEstimator",
   critical = p_crit,
-  singleton.rm = TRUE,
+  singleton.rm = FALSE,
   mating = "random",
   plot.out = FALSE
 )
