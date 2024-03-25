@@ -403,6 +403,18 @@ write_csv(data, "./Results/ResultsSummary.csv")
 
 ```{r data2}
 
+Ne_to_r <- function(Ne, S){
+  r <- (-69*S^2 + sqrt(10000 * (S^4) * (Ne^2) + 4761 * (S^4) - 248400*(S^3)*Ne) + 1800*S*(Ne^2))/( 1800*(S^2)*(Ne^2))  
+  return(r)
+}
+
+Ne_to_r_star <- function(Ne, S){
+  r <- Ne_to_r(Ne, S)
+  r <- r - 1/S
+  return(r)
+}
+
+
 data$Var_SA_lower <- 0.25 * data$Nb_SA_est^4 * ((1 / data$Nb_SA_lower) - (1 / data$Nb_SA_est))^2
 data$Var_SA_upper <- 0.25 * data$Nb_SA_est^4 * ((1 / data$Nb_SA_upper) - (1 / data$Nb_SA_est))^2
 data$Var_SA_mean <- ( data$Var_SA_lower + data$Var_SA_upper ) / 2
