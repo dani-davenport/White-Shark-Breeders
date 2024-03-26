@@ -42,8 +42,7 @@ library(stringr)
 #adjust these if you want the relevant chunks to run
 rerun_COLONY <- FALSE
 rerun_LDNE <- FALSE
-
-include_2014 <- FALSE
+include_2014 <- TRUE
 
 ```
 
