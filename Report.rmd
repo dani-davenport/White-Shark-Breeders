@@ -592,7 +592,7 @@ No hard conclusions can be drawn from examining the individual CIs alone.
 ```{r plot_LDNe, echo=FALSE, fig.cap="LD estimates with 95% CIs and values which fall in all CIs marked as a grey rectangle"}
 
 data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") -> data2
-data2 %>% filter(est_type=="LD") %>% summarise(band_lower = max(lower), band_upper = min(upper), band_lower2 = lower[Year==2014], band_upper2 = max(upper)) -> bands
+data2 %>% filter(est_type=="LD") %>% summarise(band_lower = max(lower), band_upper = min(upper)) -> bands
 
 ggplot(data2 %>% filter(est_type=="LD"), aes(x = Year, y = est, group = est_type, colour = est_type)) + 
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower, ymax=bands$band_upper), colour='gray80', alpha=0.1) + 
@@ -842,6 +842,13 @@ ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) +
 
 `r bands_SA$band_upper-bands_SA$band_lower` width
 `r(bands_SA$band_upper+bands_SA$band_lower)/2` mean
+
+
+
+
+
+
+
 
  
   
