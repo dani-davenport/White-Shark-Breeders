@@ -293,18 +293,19 @@ clean_up_radiator_temp_files()
 
 
 COLONY_sims_list <- list(
-  scenario_0 = list(run_length=1, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234), #original quick
-  scenario_1 = list(run_length=1, allele_freq = "overall", dropout = 0, error_rate = 0.02, random_seed = 1234), #original with overall allele ests
-  scenario_2 = list(run_length=1, allele_freq = NULL, dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018
-  scenario_3 = list(run_length=1, allele_freq = "overall", dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018 with overall allele ests
-  scenario_4 = list(run_length=1, allele_freq = NULL, dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1
-  scenario_5 = list(run_length=1, allele_freq = "overall", dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1 with overall allele ests
-  scenario_6 = list(run_length=1, allele_freq = NULL, dropout = 0.007, error_rate = 0.014, random_seed = 1234), #inbetween scenario 2
-  scenario_7 = list(run_length=1, allele_freq = "overall", dropout = 0.007, error_rate = 0.014, random_seed = 1234),
-  scenario_10 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 101), #original long run
-  scenario_11 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 100), #original long run
-  scenario_12 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 102), #original med run, same as scenario 1. See if 2 vs 3 makes a difference here
-    scenario_13 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234) #original
+  scenario_00 = list(run_length=1, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234), #original quick
+  scenario_01 = list(run_length=1, allele_freq = "overall", dropout = 0, error_rate = 0.02, random_seed = 1234), #original with overall allele ests
+  scenario_02 = list(run_length=1, allele_freq = NULL, dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018
+  scenario_03 = list(run_length=1, allele_freq = "overall", dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018 with overall allele ests
+  scenario_04 = list(run_length=1, allele_freq = NULL, dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1
+  scenario_05 = list(run_length=1, allele_freq = "overall", dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1 with overall allele ests
+  scenario_06 = list(run_length=1, allele_freq = NULL, dropout = 0.007, error_rate = 0.014, random_seed = 1234), #inbetween scenario 2
+  scenario_07 = list(run_length=1, allele_freq = "overall", dropout = 0.007, error_rate = 0.014, random_seed = 1234),
+  
+  scenario_08 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 101), #original long run
+  scenario_09 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 100), #original long run
+  scenario_10 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 102), #original med run
+  scenario_11 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234) #original med run
 )
 
 
@@ -360,11 +361,11 @@ for(j in seq_len(length(COLONY_sims_list))){
 
 colony_files <- list.files("./Data/Processed/COLONY/")
 
-already_done <- list.files("./Results/COLONY/")
-already_done <- str_replace(already_done, "output", "input")
-colony_files <- setdiff(colony_files, already_done)
-colony_files <- c(str_extract(colony_files, "COLONY_input_scenario_[0-9]_[0-9]{4}.txt"),str_extract(colony_files, "COLONY_input_scenario_[0-9]{2}_[0-9]{4}.txt"))
-colony_files <- colony_files[complete.cases(colony_files)]
+# already_done <- list.files("./Results/COLONY/")
+# already_done <- str_replace(already_done, "output", "input")
+# colony_files <- setdiff(colony_files, already_done)
+# colony_files <- c(str_extract(colony_files, "COLONY_input_scenario_[0-9]_[0-9]{4}.txt"),str_extract(colony_files, "COLONY_input_scenario_[0-9]{2}_[0-9]{4}.txt"))
+# colony_files <- colony_files[complete.cases(colony_files)]
 
 
 absolute_path <- getwd() 

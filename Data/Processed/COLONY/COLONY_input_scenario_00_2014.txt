@@ -1,5 +1,5 @@
 `My first COLONY run`                ! Dataset name
-Data/Processed/COLONY/COLONY_input_scenario_10_2014.txt          ! Output file name
+Data/Processed/COLONY/COLONY_input_scenario_00_2014.txt          ! Output file name
 23                                  ! Number of offspring in the sample
 2968                                 ! Number of loci
 1234                                 ! Seed for random number generator
@@ -13,7 +13,7 @@ Data/Processed/COLONY/COLONY_input_scenario_10_2014.txt          ! Output file n
 0 0 0                                ! 0, 1, 2, 3 = No, weak, medium, strong sibship size prior; mean paternal & maternal sibship size
 0                                    ! 0/1=Unknown/Known population allele frequency
 1                                    ! Number of runs
-2                                    ! Length of run
+1                                    ! Length of run
 0                                    ! 0/1=Monitor method by Iterate
 10000                                ! Monitor interval in Iterate
 0                                    ! non-Windows version
