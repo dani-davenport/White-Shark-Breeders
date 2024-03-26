@@ -359,32 +359,6 @@ for(j in seq_len(length(COLONY_sims_list))){
 #colony2s.ifort.out needs to be in "./Executables/COLONY"
 #may actually work on other machines (e.g. non M chip Macs) if correct file is placed and relevant changes made
 
-colony_files <- list.files("./Data/Processed/COLONY/")
-
-# already_done <- list.files("./Results/COLONY/")
-# already_done <- str_replace(already_done, "output", "input")
-# colony_files <- setdiff(colony_files, already_done)
-# colony_files <- c(str_extract(colony_files, "COLONY_input_scenario_[0-9]_[0-9]{4}.txt"),str_extract(colony_files, "COLONY_input_scenario_[0-9]{2}_[0-9]{4}.txt"))
-# colony_files <- colony_files[complete.cases(colony_files)]
-
-
-absolute_path <- getwd() 
-
-for (c_f_i in colony_files){
-  
-  c_f_o <- str_replace(c_f_i, "input", "output")
-  
-  #run COLONY
-  system(paste0(absolute_path, "/Executables/COLONY/colony2s.ifort.out OFN:", absolute_path, "/Executables/COLONY/", c_f_o," IFN:", absolute_path, "/Data/Processed/COLONY/", c_f_i))
- 
-  #copy the Ne results to the results folder
-  system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".Ne ", absolute_path, "/Results/COLONY/", c_f_o))
-  
-
-}
-
-
-  
 run_colony <- function(c_f_i){
   
     c_f_o <- str_replace(c_f_i, "input", "output")
@@ -400,6 +374,14 @@ run_colony <- function(c_f_i){
 }
 
 colony_files <- list.files("./Data/Processed/COLONY/")
+
+already_done <- list.files("./Results/COLONY/")
+already_done <- str_replace(already_done, "output", "input")
+colony_files <- setdiff(colony_files, already_done)
+colony_files <- colony_files[complete.cases(colony_files)]
+
+
+
 parallel::mclapply(colony_files,
   run_colony,
   mc.cores=8, mc.preschedule=F)
@@ -416,9 +398,6 @@ parallel::mclapply(colony_files,
 #need to read COLONY data in from files
 
 colony_results_files <- list.files("./Results/COLONY/")
-# Ne      =            96
-# CI95(L) =            57
-# CI95(U) =           198
 
 col_list <- list()
 for (i in seq_len(length(colony_results_files))){
