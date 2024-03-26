@@ -390,6 +390,7 @@ parallel::mclapply(colony_files,
 
 ```{r colony cleanup eval = rerun_COLONY, echo=F}
   # #clean up everything, COLONY creates lot of junk files
+  # absolute_path <- getwd()
   # system(paste0("find ", absolute_path, "/Executables/COLONY/ ! -name 'colony2s.ifort.out' -type f -exec rm -f {} +"))
   # gc()
 ```
