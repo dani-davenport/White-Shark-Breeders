@@ -310,7 +310,7 @@ COLONY_sims_list <- list(
 
 
 source("colony_script.R") #radiator had bug (crazy I know) so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
-
+source("colony_script2.R")
 # For  the   sockeye salmon dataset, it  emerges that   microsatellites have    higher mistyping rates    than    SNPs    (Supporting Information). On average across    loci,   the   estimated null   allele    (or dropout) rate   and   false allele    rate   are   3.1%    and   1.2%    for  microsatellites, 1.1%    and   0.1%    for SNPs.    For  both    types    of  markers, false    alleles    are   much    less   frequent than   null   alleles    or allelic    dropouts. This   error   pattern is  in  contrast with that   in  the   ant   dataset and   the   spectacled caiman dataset, where    false alleles    are   the   predominant type    of  genotyping errors. 
 
 for(j in seq_len(length(COLONY_sims_list))){

@@ -38,10 +38,7 @@ write_colony2 <- function (data, strata = NULL, sample.markers = NULL, pop.selec
     data %<>% calibrate_alleles(data = ., gt = TRUE) %$% 
       input
   }
-  if (!is.null(pop.select)) {
-    data %<>% dplyr::filter(POP_ID %in% pop.select)
-    data %<>% filter_monomorphic(data = .)
-  }
+
   if (!is.null(sample.markers)) {
     message("Randomly subsampling ", sample.markers, " markers...")
     markers.list <- dplyr::distinct(data, MARKERS) %>% dplyr::sample_n(tbl = ., 
@@ -51,7 +48,7 @@ write_colony2 <- function (data, strata = NULL, sample.markers = NULL, pop.selec
     markers.list <- NULL
   }
   message("Generating COLONY file...\n")
-  radiator:::radiator_colony(data = data, filename = filename, allele.freq = allele.freq , inbreeding = inbreeding, 
+  radiator_colony2(data = data, filename = filename, allele.freq = allele.freq , inbreeding = inbreeding, pop.select = pop.select,
                              mating.sys.males = mating.sys.males, mating.sys.females = mating.sys.females, clone = clone, 
                              run.length = run.length, analysis = analysis, allelic.dropout = allelic.dropout, error.rate = error.rate, 
                              print.all.colony.opt = print.all.colony.opt )
