@@ -41,9 +41,8 @@ library(stringr)
 
 #adjust these if you want the relevant chunks to run
 rerun_COLONY <- FALSE
-rerun_LDNE <- FALSE
-
-include_2014 <- FALSE
+rerun_LDNE <- TRUE
+include_2014 <- TRUE
 
 ```
 
@@ -429,7 +428,7 @@ write_csv(All_COLONY_data, "./Results/COLONY/ResultsSummary.csv")
 ```
 
 ```{r pickcolony, eval = T}
-Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_00") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
+Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_08") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
 write_csv(Nb_SA_data, "./Results/COLONY/ResultsSummary_final.csv")
 ```
 
