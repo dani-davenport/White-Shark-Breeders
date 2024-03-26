@@ -371,7 +371,7 @@ colony_files <- list.files("./Data/Processed/COLONY/")
 absolute_path <- getwd() 
 
 for (c_f_i in colony_files){
-
+  
   c_f_o <- str_replace(c_f_i, "input", "output")
   
   #run COLONY
@@ -382,6 +382,27 @@ for (c_f_i in colony_files){
   
 
 }
+
+
+  
+run_colony <- function(c_f_i){
+  
+    c_f_o <- str_replace(c_f_i, "input", "output")
+    absolute_path <- "/home/andrew/Desktop/White-Shark-Breeders"
+    
+  #run COLONY
+  system(paste0(absolute_path, "/Executables/COLONY/colony2s.ifort.out OFN:",
+                absolute_path, "/Executables/COLONY/", c_f_o," IFN:", 
+                absolute_path, "/Data/Processed/COLONY/", c_f_i))
+ 
+  #copy the Ne results to the results folder
+  system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".Ne ", absolute_path, "/Results/COLONY/", c_f_o))
+}
+
+colony_files <- list.files("./Data/Processed/COLONY/")
+parallel::mclapply(colony_files,
+  run_colony,
+  mc.cores=8, mc.preschedule=F)
 
 ```
 
