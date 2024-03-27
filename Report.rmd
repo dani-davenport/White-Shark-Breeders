@@ -427,10 +427,32 @@ write_csv(All_COLONY_data, "./Results/COLONY/ResultsSummary.csv")
 
 ```
 
+Scenario List:
+
+*    scenario_00 - Default settings, short run
+*    scenario_01 - Default settings, population allele frequencies, short run
+*    scenario_02 - Error rates from Wang 2018, short run 
+*    scenario_03 - Error rates from Wang 2018, population allele frequencies, short run 
+*    scenario_04 - Error rates inbetween 1, short run 
+*    scenario_05 - Error rates inbetween 1, population allele frequencies, short run 
+*    scenario_06 - Error rates inbetween 2, short run
+*    scenario_07 - Error rates inbetween 2, population allele frequencies, short run 
+*    scenario_08 - Default settings, long run, repeat - Settings from original paper
+*    scenario_09 - Default settings, long run, repeat 
+*    scenario_10 - Default settings, medium run, repeat 
+*    scenario_11 - Default settings, medium run, repeat 
+
+
 ```{r pickcolony, eval = T}
-Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_00") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
+ggplot(All_COLONY_data, aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position = dodge) 
+
+All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenario_02", "scenario_03","scenario_08")) %>% ggplot( aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position = dodge) 
+
+Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_08") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
 write_csv(Nb_SA_data, "./Results/COLONY/ResultsSummary_final.csv")
 ```
+Estimates slightly lower for some years if use population allele frequencies, otherwise basically same. No real reason to deviate from original settings.
+
 
 ## Run NeEstimator
 
@@ -477,6 +499,7 @@ if(rerun_LDNE){
 ```
 
 ## Cobmine and Save All Estimates Code
+
 ```{r data_comb}
 
 #read in from file so always works even if not a full rerun
@@ -839,8 +862,6 @@ ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) +
 
 ```
 
-`r bands_SA$band_upper-bands_SA$band_lower` width
-`r(bands_SA$band_upper+bands_SA$band_lower)/2` mean
 
 
 

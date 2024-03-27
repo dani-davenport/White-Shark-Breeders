@@ -1,6 +1,6 @@
 Year,Scenario,Nb_SA_est,Nb_SA_lower,Nb_SA_upper
-2010,scenario_00,96,60,192
-2011,scenario_00,234,146,504
-2012,scenario_00,204,139,331
-2013,scenario_00,152,108,218
-2014,scenario_00,127,70,424
+2010,scenario_08,96,57,179
+2011,scenario_08,234,144,552
+2012,scenario_08,196,133,320
+2013,scenario_08,152,109,221
+2014,scenario_08,127,73,402
