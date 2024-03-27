@@ -37,6 +37,16 @@ library(readr)
 library(stringr)
 
 #install.packages("remotes")
+  
+source("colony_script.R") #radiator had bug (crazy I know) so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
+source("colony_script2.R")
+  
+#some graph settings for later
+width <- 0.2
+SA_col <- "darkblue"
+LD_col <- "darkred"
+COM_col <- "darkgreen"
+dodge <- position_dodge(width=0.5)
 
 
 #adjust these if you want the relevant chunks to run
@@ -311,9 +321,7 @@ if(rerun_COLONY){
     scenario_11 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234) #original med run
   )
   
-  
-  source("colony_script.R") #radiator had bug (crazy I know) so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
-  source("colony_script2.R")
+
   # For  the   sockeye salmon dataset, it  emerges that   microsatellites have    higher mistyping rates    than    SNPs    (Supporting Information). On average across    loci,   the   estimated null   allele    (or dropout) rate   and   false allele    rate   are   3.1%    and   1.2%    for  microsatellites, 1.1%    and   0.1%    for SNPs.    For  both    types    of  markers, false    alleles    are   much    less   frequent than   null   alleles    or allelic    dropouts. This   error   pattern is  in  contrast with that   in  the   ant   dataset and   the   spectacled caiman dataset, where    false alleles    are   the   predominant type    of  genotyping errors. 
   
   for(j in seq_len(length(COLONY_sims_list))){
@@ -444,9 +452,9 @@ Scenario List:
 
 
 ```{r pickcolony, eval = T}
-ggplot(All_COLONY_data, aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position = dodge) 
+ggplot(All_COLONY_data, aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position =dodge) 
 
-All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenario_02", "scenario_03","scenario_08")) %>% ggplot( aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position = dodge) 
+All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenario_02", "scenario_03","scenario_08")) %>% ggplot( aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position =dodge) 
 
 Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_08") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
 write_csv(Nb_SA_data, "./Results/COLONY/ResultsSummary_final.csv")
@@ -456,46 +464,62 @@ Estimates slightly lower for some years if use population allele frequencies, ot
 
 ## Run NeEstimator
 
-```{r run_LDNe, eval = rerun_LDNE}
+```{r run_LDNe, eval = rerun_LDNE, echo = F}
 #this should run on any machine so long as the executables are in "./Executables/NeEstimator"
 if(rerun_LDNE){
-  p_crit <- c(0.05) 
   
-  Ne_res <- list()
-  
-  for(year in 2010:2014){
-    gl_temp <- gl.keep.pop(new_gl, as.character(year), verbose = 0)
-  
-    Ne_res <- c(Ne_res, gl.LDNe(
-      gl_temp,
-      neest.path = "./Executables/NeEstimator",
-      critical = p_crit,
-      singleton.rm = FALSE,
-      mating = "random",
-      plot.out = FALSE,
-      verbose = 0
-    ))
-    
-  }
-  
-  
+  p_crit_list <- c(0, 0.02, 0.05) 
   df_list <- list()
-  for(i in seq_len(length(Ne_res))){
+  
+  for (p_crit in p_crit_list){
     
-    Year <- str_extract(names(Ne_res[i]), "[0-9]{4}")
-    S <- sum(new_gl$pop==Year)
-    Nb_LD_est <- as.numeric(Ne_res[[i]]$`Frequency 1`[6])
-    Nb_LD_lower <- as.numeric(Ne_res[[i]]$`Frequency 1`[9])
-    Nb_LD_upper <- as.numeric(Ne_res[[i]]$`Frequency 1`[10])
-    r_star <- as.numeric(Ne_res[[i]]$`Frequency 1`[4])-as.numeric(Ne_res[[i]]$`Frequency 1`[5]) #ideally would get from Burrows File but this should be close enough
+    Ne_res <- list()
+  
+    for(year in 2010:2014){
+      gl_temp <- gl.keep.pop(new_gl, as.character(year), verbose = 0)
     
-    df_list[[i]] <- data.frame(Year, S, Nb_LD_est, Nb_LD_lower, Nb_LD_upper, r_star)			
+      Ne_res <- c(Ne_res, gl.LDNe(
+        gl_temp,
+        neest.path = "./Executables/NeEstimator",
+        critical = p_crit,
+        singleton.rm = FALSE,
+        mating = "random",
+        plot.out = FALSE,
+        verbose = 0
+      ))
+      
+    }
+    
+    
+    
+    for(i in seq_len(length(Ne_res))){
+      
+      Year <- str_extract(names(Ne_res[i]), "[0-9]{4}")
+      S <- sum(new_gl$pop==Year)
+      Nb_LD_est <- as.numeric(Ne_res[[i]]$`Frequency 1`[6])
+      Nb_LD_lower <- as.numeric(Ne_res[[i]]$`Frequency 1`[9])
+      Nb_LD_upper <- as.numeric(Ne_res[[i]]$`Frequency 1`[10])
+      r_star <- as.numeric(Ne_res[[i]]$`Frequency 1`[4])-as.numeric(Ne_res[[i]]$`Frequency 1`[5]) #ideally would get from Burrows File but this should be close enough
+      
+      df_list[[length(df_list)+1]] <- data.frame(Year, S, Nb_LD_est, Nb_LD_lower, Nb_LD_upper, r_star, p_crit)			
+    }
   }
-  
-  Nb_LD_data <- bind_rows(df_list) %>% filter(Year >= 2010, Year <= 2014)
-  
-  write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary.csv")
+  Nb_LD_data_all <- bind_rows(df_list) %>% filter(Year >= 2010, Year <= 2014)
+  write_csv(Nb_LD_data_all, "./Results/NeEstimator/NeResultsSummary.csv")
 }
+
+```
+
+```{r pickpcrit, eval = T}
+
+Nb_LD_data_all <-  read_csv("./Results/NeEstimator/NeResultsSummary.csv")
+Nb_LD_data_all$p_crit <- factor(Nb_LD_data_all$p_crit)
+
+ggplot(Nb_LD_data_all, aes(x = Year, y = Nb_LD_est, colour = p_crit, group=p_crit)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_LD_lower, ymax = Nb_LD_upper), width = width, position =dodge)  + coord_cartesian(ylim = c(0,1000)) + theme_bw()
+
+Nb_LD_data <- Nb_LD_data_all %>% filter(p_crit == 0.05) #need to pick one(1) 0.05 is the original settings
+
+write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary_final.csv")
 ```
 
 ## Cobmine and Save All Estimates Code
@@ -503,7 +527,7 @@ if(rerun_LDNE){
 ```{r data_comb}
 
 #read in from file so always works even if not a full rerun
-Nb_LD_data <- read_csv( "./Results/NeEstimator/NeResultsSummary.csv")
+Nb_LD_data <- read_csv( "./Results/NeEstimator/NeResultsSummary_final.csv")
 Nb_LSA_data <- read_csv( "./Results/COLONY/ResultsSummary_final.csv")
 
 #join and save
@@ -580,15 +604,11 @@ Outputs of NeEstimator and of Colony are saved in Report/NbResults.xlsx , where 
 ## Summary Plots
 
 ```{r summary_plot1, echo=FALSE, fig.cap = "Plot of Nb estimates with 95% confidence intervals"}
-width <- 0.2
-SA_col <- "darkblue"
-LD_col <- "darkred"
-COM_col <- "darkgreen"
-dodge <- position_dodge(width=0.5)
+
 
 data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") %>% filter(est_type != "COM")-> data2
 
-ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ coord_cartesian(ylim = c(0,1000))
+ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ coord_cartesian(ylim = c(0,1000))
 
 ```
 
@@ -598,7 +618,7 @@ The combined estimates are also plotted here. The error bars in this case repres
 
 data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") %>% filter(est_type == "COM")-> data2
 
-ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) + scale_color_manual(values = c(COM_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ ylim(c(0,1000))
+ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(COM_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ ylim(c(0,1000))
 
 ```
 
@@ -619,7 +639,7 @@ data2 %>% filter(est_type=="LD") %>% summarise(band_lower = max(lower), band_upp
 ggplot(data2 %>% filter(est_type=="LD"), aes(x = Year, y = est, group = est_type, colour = est_type)) + 
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower, ymax=bands$band_upper), colour='gray80', alpha=0.1) + 
   #geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower2, ymax=bands$band_upper2), colour='gray100', alpha=0.1) + 
-  geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) +
+  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) +
   scale_color_manual(values = c(LD_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + coord_cartesian(ylim = c(0,1000))
 ```
 
@@ -675,11 +695,11 @@ With the updated results, the intervals for the SA method are no longer mutually
 data2 %>% filter(est_type=="SA") %>% summarise(band_lower = max(lower), band_upper = min(upper)) -> bands
 
 
-ggplot(data2 %>% filter(est_type=="SA"), aes(x = Year, y = est, group = est_type, colour = est_type)) +  geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) + scale_color_manual(values = c(SA_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + 
+ggplot(data2 %>% filter(est_type=="SA"), aes(x = Year, y = est, group = est_type, colour = est_type)) +  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(SA_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + 
 
 geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower, ymax=bands$band_upper), colour='gray80', alpha=0.1) + 
   #geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower2, ymax=bands$band_upper2), colour='gray100', alpha=0.1) + 
-  geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) +
+  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) +
   scale_color_manual(values = c(SA_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + coord_cartesian(ylim = c(0,1000))
 
 
@@ -855,21 +875,28 @@ data2 %>% filter(est_type=="LD") %>% summarise(band_lower = max(lower), band_upp
 
 
 ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands_LD$band_lower, ymax=bands_LD$band_upper), fill='pink', alpha=0.1, colour=NA) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands_SA$band_lower, ymax=bands_SA$band_upper), fill='lightblue', alpha=0.1, colour=NA) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands_LD$band_lower, ymax=bands_LD$band_upper), fill='indianred2', alpha=0.08, colour=NA) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands_SA$band_lower, ymax=bands_SA$band_upper), fill='lightblue', alpha=0.08, colour=NA) +
   
-  geom_point(position = dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position = dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+coord_cartesian(ylim = c(0,1000))
+  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+coord_cartesian(ylim = c(0,1000))
 
+```
+
+  
+# References
+
+
+
+# R Settings
+
+```{r}
+R.version
+```
+
+```{r}
+sessionInfo()
 ```
 
 
 
 
-
-
-
-
-
- 
-  
-# References
