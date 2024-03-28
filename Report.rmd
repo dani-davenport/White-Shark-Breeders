@@ -10,7 +10,7 @@ output: html_document
 
 knitr::opts_chunk$set(dpi = 400, 
                       echo=TRUE, # change true or false here whether you want to show the R code
-                      include=FALSE,
+                      include=TRUE,
                       warning=FALSE, 
                       message=FALSE, 
                       fig.show=TRUE, 
@@ -51,19 +51,20 @@ dodge <- position_dodge(width=0.5)
 ```
 
 ```{r parameter settings}
-#adjust these if you want the relevant chunks to run
-rerun_COLONY <- TRUE
-  rerun_COLONY_all <- FALSE
-  
-rerun_LDNE <- TRUE
-
-include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
 
 #use the fixed cohorts
 new_cohort_assignment <- TRUE
 
 #use the new fixed genomes
 use_fixed_genotypes <- TRUE
+
+#adjust these if you want the relevant chunks to run
+rerun_COLONY <- FALSE
+  rerun_COLONY_all <- FALSE
+  
+rerun_LDNE <- FALSE
+
+include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
 
 #p_crit choices
 p_crit_list <- c(0.05) #c(0, 0.02, 0.05) 
