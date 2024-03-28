@@ -9,7 +9,8 @@ output: html_document
 ```{r setup, message=F, echo = F, warnings = F}
 
 knitr::opts_chunk$set(dpi = 400, 
-                      echo=FALSE, # change true or false here whether you want to show the R code
+                      echo=TRUE, # change true or false here whether you want to show the R code
+                      include=FALSE,
                       warning=FALSE, 
                       message=FALSE, 
                       fig.show=TRUE, 
@@ -56,16 +57,16 @@ rerun_COLONY <- TRUE
   
 rerun_LDNE <- TRUE
 
-include_2014 <- FALSE
+include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
 
 #use the fixed cohorts
-new_cohort_assignment <- FALSE
+new_cohort_assignment <- TRUE
 
 #use the new fixed genomes
-use_fixed_genotypes <- FALSE
+use_fixed_genotypes <- TRUE
 
 #p_crit choices
-p_crit_list <- c(0, 0.02, 0.05) 
+p_crit_list <- c(0.05) #c(0, 0.02, 0.05) 
 p_crit_chosen <- 0.05
 
 #COLONY params for simulations that will actually be used
@@ -75,7 +76,7 @@ COLONY_dropout <- 0
 COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
 
-#using old data for cohorts and genotypes, no 2014, pcrit 2014, defaults for COLONY will regenerate the original published results exactly
+#using old data for cohorts and genotypes, no 2014, pcrit 2014, defaults for COLONY should regenerate the original published results exactly
 
 ```
 
@@ -111,7 +112,7 @@ For this section I follow the approach used by Dani as far as was required to co
 
 A bug in an R-package used in the original publication is suspected to have introduced inconsistencies into the output files used in the final analysis.
 
-```{r Quantify Error, echo = F, include =T}
+```{r Quantify Error, echo = T, include =T}
 # read in published strata
 strata_info = read.table("Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv", header = T) # used in the published ms 
 
@@ -153,7 +154,6 @@ which(head(orig_gl@loc.names) == head(new_gl@loc.names))
 # compare the old and the new files for missingness
 # print out each genlight to get info on missngness, loci, invidual
 orig_gl
-new_gl
 ```
 
 ```{r missingness2, message = F, echo = T}
@@ -304,7 +304,7 @@ table(gl_file@pop)
 dartR::gl2genepop(gl_file, outfile = "genotypes_for_Ne.gen", outpath = "Data/Processed/NeEstimator")
 ```
 
-```{r write colony part1, eval = rerun_COLONY}
+```{r write colony part1, eval = rerun_COLONY, include=F}
 if(rerun_COLONY){
   # 2. write the same file to COLONY format , check that the file has been written out correctly 
   # 2b. run this file through COLONY
@@ -332,7 +332,7 @@ if(rerun_COLONY){
 }
 ```
 
-```{r write colony, eval = rerun_COLONY, echo=F}
+```{r write colony, eval = rerun_COLONY, echo=T, include=F}
 #params for colony
 
 #run_length <- 2  #3. is long, 4 is very long, 2 is probably fine for this. is mainly about stability
@@ -425,7 +425,7 @@ if(rerun_COLONY){
 
 ## Run COLONY
 
-```{r run colony, eval = rerun_COLONY, echo=F}
+```{r run colony, eval = rerun_COLONY, echo=T, include=F}
 
 #Simply will not run on M1-M3 Macs
 #No idea about Windows
