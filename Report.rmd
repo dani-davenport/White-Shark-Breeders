@@ -50,6 +50,8 @@ COM_col <- "darkgreen"
 dodge <- position_dodge(width=0.5)
 ```
 
+# Parameter Choices
+
 ```{r parameter settings}
 
 #use the fixed cohorts
@@ -949,22 +951,14 @@ ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) +
   geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+coord_cartesian(ylim = c(0,1000))
 
 ```
-
-  
-# References
-
-
-
 # R Settings
 
 ```{r}
 R.version
 ```
 
-```{r}
-sessionInfo()
-```
 
+# References
 
 
 
