@@ -56,13 +56,13 @@ rerun_COLONY <- TRUE
   
 rerun_LDNE <- TRUE
 
-include_2014 <- TRUE
+include_2014 <- FALSE
 
 #use the fixed cohorts
-new_cohort_assignment <- TRUE
+new_cohort_assignment <- FALSE
 
 #use the new fixed genomes
-use_fixed_genotypes <- TRUE
+use_fixed_genotypes <- FALSE
 
 #p_crit choices
 p_crit_list <- c(0, 0.02, 0.05) 
@@ -74,6 +74,8 @@ COLONY_allele_freq <- NULL # vs "overall" for population averages
 COLONY_dropout <- 0 
 COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
+
+#using old data for cohorts and genotypes, no 2014, pcrit 2014, defaults for COLONY will regenerate the original published results exactly
 
 ```
 
@@ -270,19 +272,29 @@ dartR is used write out a genepop file, and a custom script to write out a COLON
 
 if(new_cohort_assignment){
   cohort_assignment_file <- "Data/Processed/New_Cohort_Assignment.tsv"
-}else{
-  cohort_assignment_file <- "Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv"
-}
-
-cohort_assignment = readr::read_tsv( )%>% #New cohort assignment
+  
+  cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assignment
   separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
   unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+  
+}else{
+  cohort_assignment_file <- "Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv"
+  
+  cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assignment
+  separate(INDIVIDUALS, into = c("string1", "string2"), sep = "-", remove = FALSE) %>%
+  unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+}
+
+
 
 if(use_fixed_genotypes){
   gl_file <- new_gl
 }else{
   gl_file <- orig_gl
 }
+
+gl_file$ind.names <- str_replace(gl_file$ind.names, "-", "_")
+
 
 ind_order = tibble::tibble(MBB_CODE_JOIN = gl_file$ind.names, OLD_STRATA = gl_file@pop) %>%
   left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
@@ -297,7 +309,14 @@ if(rerun_COLONY){
   # 2. write the same file to COLONY format , check that the file has been written out correctly 
   # 2b. run this file through COLONY
   
-  pops <- radiator::genomic_converter("Data/Processed/NeEstimator/genotypes_for_Ne.gen")
+  #for whatever reason the format detector in radiator::genomic_converter gets doesnt work consistently with the old and new data
+  #but this fix avoids the error
+  
+  if(use_fixed_genotypes){
+    pops <- radiator::genomic_converter("Data/Processed/NeEstimator/genotypes_for_Ne.gen")
+  }else{
+    pops <- radiator::genomic_converter(gl_file)
+}
   
   
   clean_up_radiator_temp_files <- function(){
@@ -431,14 +450,19 @@ if(rerun_COLONY){
   
   colony_files <- list.files("./Data/Processed/COLONY/")
   
-  already_done <- list.files("./Results/COLONY/")
-  already_done <- str_replace(already_done, "output", "input")
-  colony_files <- setdiff(colony_files, already_done)
-  colony_files <- colony_files[complete.cases(colony_files)]
+  #code below to skip already completed results
+  # already_done <- list.files("./Results/COLONY/")
+  # already_done <- str_replace(already_done, "output", "input")
+  # colony_files <- setdiff(colony_files, already_done)
+  # colony_files <- colony_files[complete.cases(colony_files)]
+  
+  if(!rerun_COLONY_all){
+    colony_files <- colony_files[str_detect(colony_files, "final")]
+  }
   
   parallel::mclapply(colony_files,
     run_colony,
-    mc.cores=8, mc.preschedule=F)
+    mc.cores=5, mc.preschedule=F)
 }
 ```
 
