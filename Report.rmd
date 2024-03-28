@@ -47,12 +47,33 @@ SA_col <- "darkblue"
 LD_col <- "darkred"
 COM_col <- "darkgreen"
 dodge <- position_dodge(width=0.5)
+```
 
-
+```{r parameter settings}
 #adjust these if you want the relevant chunks to run
-rerun_COLONY <- FALSE
-rerun_LDNE <- FALSE
+rerun_COLONY <- TRUE
+  rerun_COLONY_all <- FALSE
+  
+rerun_LDNE <- TRUE
+
 include_2014 <- TRUE
+
+#use the fixed cohorts
+new_cohort_assignment <- TRUE
+
+#use the new fixed genomes
+use_fixed_genotypes <- TRUE
+
+#p_crit choices
+p_crit_list <- c(0, 0.02, 0.05) 
+p_crit_chosen <- 0.05
+
+#COLONY params for simulations that will actually be used
+COLONY_run_length <- 2
+COLONY_allele_freq <- NULL # vs "overall" for population averages
+COLONY_dropout <- 0 
+COLONY_error_rate <- 0.02
+COLONY_random_seed <- 1
 
 ```
 
@@ -247,16 +268,28 @@ dartR is used write out a genepop file, and a custom script to write out a COLON
 
 #some sharks no cohort - why ?no meta data?
 
-cohort_assignment = readr::read_tsv("Data/Processed/New_Cohort_Assignment.tsv") %>% #New cohort assignment
+if(new_cohort_assignment){
+  cohort_assignment_file <- "Data/Processed/New_Cohort_Assignment.tsv"
+}else{
+  cohort_assignment_file <- "Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv"
+}
+
+cohort_assignment = readr::read_tsv( )%>% #New cohort assignment
   separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
   unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
 
-ind_order = tibble::tibble(MBB_CODE_JOIN = new_gl$ind.names, OLD_STRATA = new_gl@pop) %>%
+if(use_fixed_genotypes){
+  gl_file <- new_gl
+}else{
+  gl_file <- orig_gl
+}
+
+ind_order = tibble::tibble(MBB_CODE_JOIN = gl_file$ind.names, OLD_STRATA = gl_file@pop) %>%
   left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
 
-new_gl@pop <- as.factor(ind_order$STRATA)
-table(new_gl@pop)
-dartR::gl2genepop(new_gl, outfile = "new.gen", outpath = "Data/Processed/NeEstimator")
+gl_file@pop <- as.factor(ind_order$STRATA)
+table(gl_file@pop)
+dartR::gl2genepop(gl_file, outfile = "genotypes_for_Ne.gen", outpath = "Data/Processed/NeEstimator")
 ```
 
 ```{r write colony part1, eval = rerun_COLONY}
@@ -264,7 +297,7 @@ if(rerun_COLONY){
   # 2. write the same file to COLONY format , check that the file has been written out correctly 
   # 2b. run this file through COLONY
   
-  pops <- radiator::genomic_converter("Data/Processed/NeEstimator/new.gen")
+  pops <- radiator::genomic_converter("Data/Processed/NeEstimator/genotypes_for_Ne.gen")
   
   
   clean_up_radiator_temp_files <- function(){
@@ -305,23 +338,34 @@ if(rerun_COLONY){
 # error_rate <- 0.02
 if(rerun_COLONY){
   
-  COLONY_sims_list <- list(
-    scenario_00 = list(run_length=1, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234), #original quick
-    scenario_01 = list(run_length=1, allele_freq = "overall", dropout = 0, error_rate = 0.02, random_seed = 1234), #original with overall allele ests
-    scenario_02 = list(run_length=1, allele_freq = NULL, dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018
-    scenario_03 = list(run_length=1, allele_freq = "overall", dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018 with overall allele ests
-    scenario_04 = list(run_length=1, allele_freq = NULL, dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1
-    scenario_05 = list(run_length=1, allele_freq = "overall", dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1 with overall allele ests
-    scenario_06 = list(run_length=1, allele_freq = NULL, dropout = 0.007, error_rate = 0.014, random_seed = 1234), #inbetween scenario 2
-    scenario_07 = list(run_length=1, allele_freq = "overall", dropout = 0.007, error_rate = 0.014, random_seed = 1234),
-    
-    scenario_08 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 101), #original long run
-    scenario_09 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 100), #original long run
-    scenario_10 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 102), #original med run
-    scenario_11 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234) #original med run
-  )
+  if(rerun_COLONY_all){
+    COLONY_sims_list <- list(
+      scenario_00 = list(run_length=1, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234), #original quick
+      scenario_01 = list(run_length=1, allele_freq = "overall", dropout = 0, error_rate = 0.02, random_seed = 1234), #original with overall allele ests
+      scenario_02 = list(run_length=1, allele_freq = NULL, dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018
+      scenario_03 = list(run_length=1, allele_freq = "overall", dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018 with overall allele ests
+      scenario_04 = list(run_length=1, allele_freq = NULL, dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1
+      scenario_05 = list(run_length=1, allele_freq = "overall", dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1 with overall allele ests
+      scenario_06 = list(run_length=1, allele_freq = NULL, dropout = 0.007, error_rate = 0.014, random_seed = 1234), #inbetween scenario 2
+      scenario_07 = list(run_length=1, allele_freq = "overall", dropout = 0.007, error_rate = 0.014, random_seed = 1234),
+      
+      scenario_08 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 101), #original long run
+      scenario_09 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 100), #original long run
+      scenario_10 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 102), #original med run
+      scenario_11 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234) #original med run
+    )
+  }else{
+    COLONY_sims_list <- list(
+      scenario_final = list(run_length = COLONY_run_length,
+                            allele_freq = COLONY_allele_freq,
+                            dropout = COLONY_dropout,
+                            error_rate = COLONY_error_rate,
+                            random_seed = COLONY_random_seed
+      ) 
+    )
+  }
   
-
+  
   # For  the   sockeye salmon dataset, it  emerges that   microsatellites have    higher mistyping rates    than    SNPs    (Supporting Information). On average across    loci,   the   estimated null   allele    (or dropout) rate   and   false allele    rate   are   3.1%    and   1.2%    for  microsatellites, 1.1%    and   0.1%    for SNPs.    For  both    types    of  markers, false    alleles    are   much    less   frequent than   null   alleles    or allelic    dropouts. This   error   pattern is  in  contrast with that   in  the   ant   dataset and   the   spectacled caiman dataset, where    false alleles    are   the   predominant type    of  genotyping errors. 
   
   for(j in seq_len(length(COLONY_sims_list))){
@@ -332,24 +376,24 @@ if(rerun_COLONY){
       
       pops$tidy.data %>% 
         write_colony2(verbose=T, 
-          pop.select = i,
-          error.rate = 0.1,
-          allele.freq = COLONY_sims_list[[j]]$allele_freq,
-          filename = colony_filename,
-          inbreeding = 0, #default, HWE
-          mating.sys.males = 0, #default, poly
-          mating.sys.females = 0, #default, poly
-          clone = 0, #default, only an issue in a species with clones + low marker numbers
-          run.length = COLONY_sims_list[[j]]$run_length,
-          analysis = 1, #default, full likelihood, is most accurate
-          allelic.dropout = COLONY_sims_list[[j]]$dropout,
-         random.seed = COLONY_sims_list[[j]]$random_seed
+                      pop.select = i,
+                      error.rate = 0.1,
+                      allele.freq = COLONY_sims_list[[j]]$allele_freq,
+                      filename = colony_filename,
+                      inbreeding = 0, #default, HWE
+                      mating.sys.males = 0, #default, poly
+                      mating.sys.females = 0, #default, poly
+                      clone = 0, #default, only an issue in a species with clones + low marker numbers
+                      run.length = COLONY_sims_list[[j]]$run_length,
+                      analysis = 1, #default, full likelihood, is most accurate
+                      allelic.dropout = COLONY_sims_list[[j]]$dropout,
+                      random.seed = COLONY_sims_list[[j]]$random_seed
         )
       clean_up_radiator_temp_files()
     }
   }
-
-
+  
+  
 }  
 #other settings left as default
 #Sibship size prior.To use the prior, you are asked to provide the (estimated) average paternal (np) and maternal (nm) sibship size, and the value of x. When one has no idea of the average sibship size, use x=0 (No prior) and you are not asked about the np and nm values. Otherwise, use x=0.25, 0.5 and 1.0 when your confidence in the provided np and nm values is low, medium and high respectively
@@ -370,6 +414,7 @@ if(rerun_COLONY){
 #colony2s.ifort.out needs to be in "./Executables/COLONY"
 #may actually work on other machines (e.g. non M chip Macs) if correct file is placed and relevant changes made
 if(rerun_COLONY){
+  
   run_colony <- function(c_f_i){
     
       c_f_o <- str_replace(c_f_i, "input", "output")
@@ -391,8 +436,6 @@ if(rerun_COLONY){
   colony_files <- setdiff(colony_files, already_done)
   colony_files <- colony_files[complete.cases(colony_files)]
   
-  
-  
   parallel::mclapply(colony_files,
     run_colony,
     mc.cores=8, mc.preschedule=F)
@@ -402,9 +445,9 @@ if(rerun_COLONY){
 ```{r colony_cleanup, eval = rerun_COLONY, echo=F}
 if(rerun_COLONY){
   # #clean up everything, COLONY creates lot of junk files
-  # absolute_path <- getwd()
-  # system(paste0("find ", absolute_path, "/Executables/COLONY/ ! -name 'colony2s.ifort.out' -type f -exec rm -f {} +"))
-  # gc()
+  absolute_path <- getwd()
+  system(paste0("find ", absolute_path, "/Executables/COLONY/ ! -name 'colony2s.ifort.out' -type f -exec rm -f {} +"))
+  gc()
 }
 ```
 
@@ -418,7 +461,7 @@ col_list <- list()
 for (i in seq_len(length(colony_results_files))){
   c_r_f <- colony_results_files[i]
   res <- readLines(file.path("./Results/COLONY/", c_r_f))
-  temp <- str_match(c_r_f, "^COLONY_output_(scenario_[0-9]+)_([0-9]{4}).txt$")
+  temp <- str_match(c_r_f, "^COLONY_output_(scenario_[a-zA-Z0-9]+)_([0-9]{4}).txt$")
   
   Year <- as.numeric(temp[3])
   Scenario <- temp[2]
@@ -454,9 +497,9 @@ Scenario List:
 ```{r pickcolony, eval = T}
 ggplot(All_COLONY_data, aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position =dodge) 
 
-All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenario_02", "scenario_03","scenario_08")) %>% ggplot( aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position =dodge) 
+All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenario_02", "scenario_03","scenario_08", "scenario_final")) %>% ggplot( aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position =dodge) 
 
-Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_08") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
+Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_final") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
 write_csv(Nb_SA_data, "./Results/COLONY/ResultsSummary_final.csv")
 ```
 Estimates slightly lower for some years if use population allele frequencies, otherwise basically same. No real reason to deviate from original settings.
@@ -468,7 +511,7 @@ Estimates slightly lower for some years if use population allele frequencies, ot
 #this should run on any machine so long as the executables are in "./Executables/NeEstimator"
 if(rerun_LDNE){
   
-  p_crit_list <- c(0, 0.02, 0.05) 
+  
   df_list <- list()
   
   for (p_crit in p_crit_list){
@@ -476,7 +519,7 @@ if(rerun_LDNE){
     Ne_res <- list()
   
     for(year in 2010:2014){
-      gl_temp <- gl.keep.pop(new_gl, as.character(year), verbose = 0)
+      gl_temp <- gl.keep.pop(gl_file, as.character(year), verbose = 0)
     
       Ne_res <- c(Ne_res, gl.LDNe(
         gl_temp,
@@ -495,7 +538,7 @@ if(rerun_LDNE){
     for(i in seq_len(length(Ne_res))){
       
       Year <- str_extract(names(Ne_res[i]), "[0-9]{4}")
-      S <- sum(new_gl$pop==Year)
+      S <- sum(gl_file$pop==Year)
       Nb_LD_est <- as.numeric(Ne_res[[i]]$`Frequency 1`[6])
       Nb_LD_lower <- as.numeric(Ne_res[[i]]$`Frequency 1`[9])
       Nb_LD_upper <- as.numeric(Ne_res[[i]]$`Frequency 1`[10])
@@ -517,7 +560,7 @@ Nb_LD_data_all$p_crit <- factor(Nb_LD_data_all$p_crit)
 
 ggplot(Nb_LD_data_all, aes(x = Year, y = Nb_LD_est, colour = p_crit, group=p_crit)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_LD_lower, ymax = Nb_LD_upper), width = width, position =dodge)  + coord_cartesian(ylim = c(0,1000)) + theme_bw()
 
-Nb_LD_data <- Nb_LD_data_all %>% filter(p_crit == 0.05) #need to pick one(1) 0.05 is the original settings
+Nb_LD_data <- Nb_LD_data_all %>% filter(p_crit == p_crit_chosen) #need to pick one(1) 0.05 is the original settings
 
 write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary_final.csv")
 ```
