@@ -814,16 +814,12 @@ results_frame %>% gt() %>% opt_stylize() %>% fmt_number(columns = c(6:9), decima
 
 ```
 
-After adjustment for multiple comparisons, there is still a significant difference between 2010 and 2011 (p = 0.045). The situation is somewhat confusing here as the estimates for 2011, 2012 and 2013 are not significantly different from 2010.
-
 I had a number of reservations about this analysis, but I have included this analysis as I believe it is important.
 
 These issues are:
 
 - I am much less familiar with the CIs for COLONY than for LDNe
-- The accuracy of extracting the variance from the CI bounds was very high, at the time of the original paper I put this down to the fact it rounds to whole numbers, but I'm not longer sure
-- The estimate for 2010 has the narrowest CI bounds while having the lowest sample size. This is 'correct' and is based on the high number of sibling pairs assigned by COLONY.
-- I have not been able to spend as much time checking this as I would like
+- The accuracy of extracting the variance from the CI bounds was not very high, at the time of the original paper I put this down to the fact it rounds to whole numbers, but I'm not longer sure
 
 # Trends
 
