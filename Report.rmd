@@ -543,7 +543,9 @@ All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenar
 Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_final") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
 write_csv(Nb_SA_data, "./Results/COLONY/ResultsSummary_final.csv")
 ```
-Estimates slightly lower for some years if use population allele frequencies, otherwise basically same. The "short" runs have a degree of inconsistency between runs, but main results will use "mdeium". Overall, there is no real reason to deviate from original settings.
+Estimates slightly lower and more consistent for some years if use population allele frequencies, otherwise basically same. The "short" runs have a degree of inconsistency between runs, but main results will use "medium". Overall, there is no real reason to deviate from original settings.
+
+
 
 ## Run NeEstimator
 
