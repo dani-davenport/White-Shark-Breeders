@@ -123,10 +123,8 @@ radiator_colony2 <- function (data, filename, allele.freq = NULL, inbreeding = 0
   precision.opt <- "3                                    ! 1/2/3=low/medium/high Precision for Full likelihood\n"
   readr::write_file(x = precision.opt, file = filename, append = TRUE)
   markers.name.opt <- stringi::stri_join(markers.name, collapse = " ")
-  markers.name.opt <- stringi::stri_join(markers.name.opt, 
-                                         " ! Marker IDs\n")
-  readr::write_file(x = markers.name.opt, file = filename, 
-                    append = TRUE)
+  markers.name.opt <- "MK@ ! Marker IDs\n" #stringi::stri_join(markers.name.opt,  " ! Marker IDs\n")
+  readr::write_file(x = markers.name.opt, file = filename,   append = TRUE)
   marker.type.opt <- stringi::stri_join(rep(0, marker.num), 
                                         collapse = " ")
   marker.type.opt <- stringi::stri_join(marker.type.opt, "  ! Marker types, 0/1=Codominant/Dominant\n")
