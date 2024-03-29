@@ -62,15 +62,6 @@ use_fixed_genotypes <- TRUE
 
 #adjust these if you want the relevant chunks to run
 rerun_COLONY <- FALSE
-  rerun_COLONY_all <- FALSE
-  
-rerun_LDNE <- TRUE
-
-include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
-
-#p_crit choices
-p_crit_list <- c(0, 0.02, 0.05) 
-p_crit_chosen <- 0.05
 
 #COLONY params for simulations that will actually be used
 COLONY_run_length <- 2
@@ -78,6 +69,21 @@ COLONY_allele_freq <- NULL # vs "overall" for population averages
 COLONY_dropout <- 0 
 COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
+
+#see scenarios section for parameter choices
+rerun_COLONY_all <- FALSE
+
+rerun_LDNE <- FALSE
+
+#p_crit choices
+p_crit_list <- c(0, 0.02, 0.05) 
+p_crit_chosen <- 0.05
+
+include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
+
+
+
+
 
 #using old data for cohorts and genotypes, no 2014, pcrit 2014, defaults for COLONY should regenerate the original published results exactly
 
@@ -189,9 +195,9 @@ Main points:
 
 # New cohort assignment
 
-The new cohort assignment file "Data/Processed/New_Cohort_Assignment.tsv" was created by running the script Scripts/Age_at_Length.R.
+The new cohort assignment file "Data/Processed/New_Cohort_Assignment.tsv" is created by running the the following chunks.
 
-The von Bertanlaffy parameters used are from are from @o2011age.
+The von Bertanlaffy parameters used are from are from @o2011age. Further work could be done exploring the impact of parameter choices, however initial work suggests the estimates are fairly robust to small numbers of individuals being allocated to different cohorts.
 
 ```{r new cohorts, eval = T}
 
@@ -262,7 +268,7 @@ readr::write_tsv(output, "Data/Processed/New_Cohort_Assignment.tsv")
 
 Below the input files for NeEstimator and COLONY are remade to make new estimates of Nb using a new file made from the published list of loci ("new_gp").
 
-dartR is used write out a genepop file, and a custom script to write out a COLONY file. 
+dartR is used write out a genepop file, and a custom script based on the radiator package is used to write out a COLONY file. These COLONY files also contain the COLONY parameter settings.
 
 ```{r make new input file, eval = T}
 
@@ -334,6 +340,14 @@ if(rerun_COLONY){
   clean_up_radiator_temp_files()
 }
 ```
+
+A number of different parameters setttings were used. 
+
+For error and drop out rate, the default settings, as were used originally are based on the recommendations of @wang2004sibship. More recently @wang2018estimating has done further empirical work, and the parameters were also tried as well as some inbetween.
+
+For each of the error and drop out rate options, a version was run with population allele frequencies only based on the cohort (allele.freq = NULL, default setting) and using estimates based on the entire population (allele_freq = "overall"). 
+
+The run length parameter was also experimented with.
 
 ```{r write colony, eval = rerun_COLONY, echo=T, include=F}
 #params for colony
@@ -529,8 +543,7 @@ All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenar
 Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_final") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
 write_csv(Nb_SA_data, "./Results/COLONY/ResultsSummary_final.csv")
 ```
-Estimates slightly lower for some years if use population allele frequencies, otherwise basically same. No real reason to deviate from original settings.
-
+Estimates slightly lower for some years if use population allele frequencies, otherwise basically same. The "short" runs have a degree of inconsistency between runs, but main results will use "mdeium". Overall, there is no real reason to deviate from original settings.
 
 ## Run NeEstimator
 
@@ -591,6 +604,8 @@ Nb_LD_data <- Nb_LD_data_all %>% filter(p_crit == p_crit_chosen) #need to pick o
 
 write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary_final.csv")
 ```
+
+The rare allele bias issue that p_crit fixes is shown here with the different choices for p_crit. Sticking with 0.05 seems like the best option.
 
 ## Cobmine and Save All Estimates Code
 
@@ -669,7 +684,6 @@ data_est_only %>% gt() %>% fmt_number(columns = c(5:10), decimals = 1)
 
 # Results
 
-Outputs of NeEstimator and of Colony are saved in Report/NbResults.xlsx , where jacknife CIs are reported for pcrit = 0.05.
 
 ## Summary Plots
 
@@ -696,10 +710,9 @@ ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geo
 
 I take stability to mean that there are no significant differences between the Nb estimates for any years, this corresponds to the null hypothesis that Nb_2010 = Nb_2011 = Nb_2012 = Nb_2013.
 
-## LD
+## LD (NeEstimator)
 
-The situation is very difficult to evaluate graphically. The point estimates for 2010 and 2014 sit outside the common region (dark grey), but the 2011-2013 estimates (and the entirity of their CIs) lie entirely within the CIs for other years.
-No hard conclusions can be drawn from examining the individual CIs alone.
+The situation is very difficult to evaluate graphically. No hard conclusions can be drawn from examining the individual CIs alone, however there is no obvious trends and the band of values that are in all confidence intervals is relatively wide.
 
 ```{r plot_LDNe, echo=FALSE, fig.cap="LD estimates with 95% CIs and values which fall in all CIs marked as a grey rectangle"}
 
@@ -719,9 +732,7 @@ A slightly more accurate result could be obtained by pulling the results directl
 
 The following table summarises the pairwise comparisons of the Nb estimates in terms of Nb. The first two columns identify which years are being compared, the third and forth columns state the relevant $r^{*}$ values. 
 
-Their difference and the estimate for the standard deviation of the estimate follow. The combined standard deviation is found by taking the square root of the sum the of the two variances. This assumes both estimates are independent. While it is likely these estimates are correlated with each other, we have no way of accurately estimating their covariance so I believe it is best to assume independence.
-
-The z-score and p-value are based on the ordinary z-test for the difference of two normaly distributed variables. The adjusted p-values are adjusted using the Bonferonni [actually used Holm FIX] method on the basis that we are making 6 pairwise comparisons and we wish to keep our family-wise error rate below 0.05. None of the unadjusted p-values were significant at the 0.05 level anyway.
+Their difference and the estimate for the standard deviation of the estimate follow. The combined standard deviation is found by taking the square root of the sum the of the two variances. This assumes both estimates are independent. While it is likely these estimates are correlated with each other, we have no way of accurately estimating their covariance so I believe it is best to assume independence. Holm method on the basis that we are making 6 pairwise comparisons and we wish to keep our family-wise error rate below 0.05. 
 
 ```{r stab1, echo=TRUE}
 data$rstar_LD_lower <- Ne_to_r_star(data$Nb_LD_lower, data$S) 
@@ -755,12 +766,11 @@ results_frame %>% gt() %>% opt_stylize() %>% fmt_number(columns = c(7:9), decima
 
 ```
 
-## SA
+## SA (COLONY)
 
 With the updated results, the intervals for the SA method are no longer mutually disjoint. Analysis is much the same as for LD now.
 
 ```{r plot_SA, echo=FALSE}
-
 
 data2 %>% filter(est_type=="SA") %>% summarise(band_lower = max(lower), band_upper = min(upper)) -> bands
 
@@ -814,7 +824,7 @@ results_frame %>% gt() %>% opt_stylize() %>% fmt_number(columns = c(6:9), decima
 
 ```
 
-I had a number of reservations about this analysis, but I have included this analysis as I believe it is important.
+I have a number of reservations about this analysis for the COLONY estimates, but I have included this analysis as I believe it is important.
 
 These issues are:
 
@@ -823,9 +833,9 @@ These issues are:
 
 # Trends
 
-I have also tested for (linear) trends. With only, five points the power to detect a trend is very low, but I think the exercise is worthwhile.
+I have also tested for (linear) trends. With only five points the power to detect a trend is very low, but I think the exercise is worthwhile.
 
-## LD
+## LD (NeEstimator)
 
 ```{r trend1, echo=TRUE}
 
@@ -864,15 +874,14 @@ glsfit$.lower <- glsfit$.fitted - qnorm(0.975) * SEline
 
 ```
 
-Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`). This model only accounts for correlation and is not the only possible way to do this. 
-It doesn't resolve any of the other issues such as asymetric CIs, or incorporate other known information such as the variances of each estimate. However these tests for a trend are likely suitable here as 4 points are very unlikely to show evidence of a trend regardless.
+Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`). This model only accounts for correlation. It doesn't resolve any of the other issues such as asymetric CIs, or incorporate other known information such as the variances of each estimate. However these tests for a trend are likely suitable here as 4 points are very unlikely to show evidence of a trend regardless. I do not believe anyone has published on this as of 2024, let alone at the time of the original publication. 
 
 ```{r trend4_plot, echo=FALSE}
 ggplot(glsfit, aes(x = Year)) + geom_point(aes(y=Nb_LD_est)) + geom_line(aes(y=.fitted), col=LD_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb LD with GLS trend (AR1 correlation only)") + coord_cartesian(ylim = c(0,500)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) 
 
 ```
 
-## SA
+## SA (COLONY)
 
 The same analysis can be repeated with the SA estimates.
 
@@ -922,8 +931,6 @@ ggplot(glsfit, aes(x = Year)) + geom_point(aes(y=Nb_SA_est)) + geom_line(aes(y=.
 ```
 
 # Discussion
-
-It's stable
 
 ```{r plot_final, echo=FALSE, fig.cap = "Plot of Nb estimates with 95% confidence intervals"}
 width <- 0.2
