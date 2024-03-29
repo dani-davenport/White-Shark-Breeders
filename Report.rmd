@@ -40,8 +40,8 @@ library(stringr)
 
 #install.packages("remotes")
   
-source("colony_script.R") #radiator had bug (crazy I know) so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
-source("colony_script2.R")
+source("./Scripts/colony_script.R") #radiator had bug (crazy I know) so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
+source("./Scripts/colony_script2.R")
   
 #some graph settings for later
 width <- 0.2
@@ -301,7 +301,7 @@ if(use_fixed_genotypes == "old"){
 }else if(use_fixed_genotypes == "new_w_old_filt"){
   gl_file <- new_gl
 }else if(use_fixed_genotypes == "new"){
-  source("filter_script.R")
+  source("./Scripts/filter_script.R")
   gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
 }else{
   message("need to choose one of old, new, or new_w_old_filt for use_fixed_genotypes")
@@ -1075,7 +1075,7 @@ cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assi
   
 
 #filtration happens here
-source("filter_script.R")
+source("./Scripts/filter_script.R")
 
 #load filteed genotypes
 gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
