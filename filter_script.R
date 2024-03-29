@@ -4,12 +4,9 @@
 ######################################################
 # parameters used in the filtering
 
-XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
-
 #call rate thresholds
 IND_CALLRATE_THRESHOLD <- 0.85
 LOCI_CALLRATE_THRESHOLD <- 0.75
-
 REPRODUCIBILITY_THRESHOLD <- 0.98
 
 # MAC threshold BELOW which (< MAC_THRESHOLD) loci are removed and above which (>= MAC_THRESHOLD) loci are kept
@@ -19,7 +16,12 @@ MAC_THRESHOLD <- 3
 READ_DEPTH_LOWER <- 5
 READ_DEPTH_UPPER <- 25
 
+#individuals to remove
 DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1372","MBB_1417","MBB_1455","MBB_1483_Dup","MBB_1544")
+XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
+
+#loci to remove based on PCAS
+df_pcadapt_loci_to_remove_final <- read.table(file=file.path('./Data/Raw', "3_pops_WAS_as_SAS.pcadapt.results.outlier_loci.qvalues.CACA_2021.Davenport_Dart_Orig_Loci.gl_dart_0_0_v2.csv"), header=FALSE, sep=",")
 
 #options for hwe tests
 str_each_or_all_pops <- 'all'
@@ -27,16 +29,13 @@ float_alpha_hwe <- 0.01
 
 #absolute, rejects >=50 and <= -0.5
 FIS_THRESHOLD <- 0.5
-
 #various file names used
-
 # IMPORT DaRTSeq data
 str_working_dir = './Data/Raw'
 str_File_Name_METADATA = 'Davenport_Dart__Report_DSha18_Dups_Relabeled__dartR_METADATA_v1.csv'
 str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled.csv'
 str_File_Name_FILTERED <- 'filtered_genotypes.RData'
 str_File_Name_FILTERED_GL <- 'filtered_genotypes.csv'
-df_pcadapt_loci_to_remove_final <- read.table(file=file.path('./Data/Raw', "3_pops_WAS_as_SAS.pcadapt.results.outlier_loci.qvalues.CACA_2021.Davenport_Dart_Orig_Loci.gl_dart_0_0_v2.csv"), header=FALSE, sep=",")
 gl_filename <- file.path('./Data/Raw/', paste0(str_File_Name_DATA, ".gl.Rdata"))
 
 #############################################
@@ -281,6 +280,7 @@ env_loci_to_remove <-  sub("[.]","/",env_loci_to_remove)
 #DROP LOCI
 gl_final <- gl.drop.loc(gl_15, env_loci_to_remove, verbose = 5)
 
+gl_final
 # -----------------------------------------------------------------------
 # SAVE FILTERED GENLIGHT 
 

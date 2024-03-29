@@ -73,7 +73,7 @@ COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
 
 #see scenarios section for parameter choices
-rerun_COLONY_all <- FALSE
+rerun_COLONY_all <- TRUE
 
 rerun_LDNE <- TRUE
 
