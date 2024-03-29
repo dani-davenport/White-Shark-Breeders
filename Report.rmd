@@ -23,6 +23,7 @@ library(tidyverse)
 library(hierfstat)
 library(gt)
 library(nlme)
+
 #remotes::install_github("thierrygosselin/radiator")
 library(radiator)
 
@@ -57,11 +58,12 @@ dodge <- position_dodge(width=0.5)
 #use the fixed cohorts
 new_cohort_assignment <- TRUE
 
-#use the new fixed genomes
-use_fixed_genotypes <- TRUE
+#use the new fixed genomes or old or new with filitration that matches old
+# "new" or "old" or "new_w_old_filt"
+use_fixed_genotypes <- "new" 
 
 #adjust these if you want the relevant chunks to run
-rerun_COLONY <- FALSE
+rerun_COLONY <- TRUE
 
 #COLONY params for simulations that will actually be used
 COLONY_run_length <- 2
@@ -71,9 +73,9 @@ COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
 
 #see scenarios section for parameter choices
-rerun_COLONY_all <- FALSE
+rerun_COLONY_all <- TRUE
 
-rerun_LDNE <- FALSE
+rerun_LDNE <- TRUE
 
 #p_crit choices
 p_crit_list <- c(0, 0.02, 0.05) 
@@ -81,9 +83,7 @@ p_crit_chosen <- 0.05
 
 include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
 
-
-
-
+Na_for_ratios <- 750 #from Bruce et al. (2018)
 
 #using old data for cohorts and genotypes, no 2014, pcrit 2014, defaults for COLONY should regenerate the original published results exactly
 
@@ -155,6 +155,7 @@ new_gl@pop<- factor(pop$STRATA)
 # check 
 which(head(str_replace_all(new_gl@ind.names, "_", "-")) ==  head(orig_gl@ind.names))
 which(head(orig_gl@loc.names) == head(new_gl@loc.names))
+
 ```
 
 ## Quantify differences in missingness between the published and new dataset 
@@ -295,15 +296,18 @@ if(new_cohort_assignment){
 }
 
 
-
-if(use_fixed_genotypes){
-  gl_file <- new_gl
-}else{
+if(use_fixed_genotypes == "old"){
   gl_file <- orig_gl
+}else if(use_fixed_genotypes == "new_w_old_filt"){
+  gl_file <- new_gl
+}else if(use_fixed_genotypes == "new"){
+  source("filter_script.R")
+  gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
+}else{
+  message("need to choose one of old, new, or new_w_old_filt for use_fixed_genotypes")
 }
 
 gl_file$ind.names <- str_replace(gl_file$ind.names, "-", "_")
-
 
 ind_order = tibble::tibble(MBB_CODE_JOIN = gl_file$ind.names, OLD_STRATA = gl_file@pop) %>%
   left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
@@ -552,8 +556,7 @@ Estimates slightly lower and more consistent for some years if use population al
 ```{r run_LDNe, eval = rerun_LDNE, echo = F}
 #this should run on any machine so long as the executables are in "./Executables/NeEstimator"
 if(rerun_LDNE){
-  
-  
+
   df_list <- list()
   
   for (p_crit in p_crit_list){
@@ -670,6 +673,11 @@ data$var_COM <- 1 / ((1/data$Var_LD_mean) + (1/data$Var_SA_mean))
 #Not CIs
 data$Nb_COM_lower <- data$Nb_COM_est - sqrt(data$var_COM) 
 data$Nb_COM_upper <- data$Nb_COM_est + sqrt(data$var_COM)
+
+data$Nb_COM_SD <- sqrt(data$var_COM)
+data$Nb_Na_ratio <- data$Nb_COM_est / Na_for_ratios
+
+data %>% write_csv("./Results/ResultsComplete.csv")
 
 #nice table
 data %>% dplyr::select(Year, starts_with("Nb_")) -> data_est_only
@@ -956,6 +964,132 @@ ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) +
   geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+coord_cartesian(ylim = c(0,1000))
 
 ```
+
+# Requested Outputs
+
+The following outputs have been specifically requested and this section provides extra details on them. 
+
+## A table comparing the before- and after-correction values for LD and SA Nb, SA Nb and any derived Nb estimates.
+
+A new file '/Original Project Files/Results/Original_Results.xlsx' has been created with exact values from the published manuscript to avoid all doubt about the original numbers.
+
+```{r}
+
+comparison_variables <- c("Year",	"S",	"Nb_LD_est",	"Nb_LD_lower",	"Nb_LD_upper",	"Nb_SA_est",	"Nb_SA_lower",	"Nb_SA_upper", "Nb_COM_est",	"Nb_COM_SD", "Nb_Na_ratio")
+
+original_data <- read_xlsx('./Original Project Files/Results/Original_Results.xlsx') %>% select(all_of(comparison_variables))
+new_data <- read_csv("./Results/ResultsComplete.csv") %>% select(all_of(comparison_variables))
+
+original_data$Era <- "Original"
+new_data$Era <- "Reanalysis"
+
+comparison_table <- rbind(original_data, new_data)
+comparison_table %>% write_csv("./Results/Comparison_data.csv")
+comparison_table %>% gt()
+```
+
+## Text, plots and/ or statistics that support the “stable Nb over X years” conclusion in the paper.
+
+See earlier parts of this report. More can be added if required.
+
+## The final LD Ne datafile used to make the corrected estimates of Nb. 
+
+This can be found in /Data/Processed/NeEstimator/genotypes_for_Ne.gen 
+
+## The overall LD Ne estimate. 
+
+This estimate should be treated with extreme caution when being interepreted.
+
+```{r}
+gl_file_temp <- gl.merge.pop(gl_file, old =  levels(gl_file@pop), new = "one-big-pop")
+
+gl.LDNe(
+        gl_file_temp,
+        neest.path = "./Executables/NeEstimator",
+        critical = p_crit_chosen ,
+        singleton.rm = FALSE,
+        mating = "random",
+        plot.out = FALSE,
+        verbose = 0)
+
+```
+
+
+## The data and scripts required for the groups, reviewers, and readers to easily recreate these results
+
+This markdown file, the associated R scripts (colony_script.R, colony_script2.R, filter_script.R ), the files in  /Data/Raw/ and the executables for COLONY and NeEstimator are all that's required to reproduce this analysis in full.
+
+## The data filtering and analyses required to produce the LD Ne genepop datafile used to make the file estimates of Nb
+
+For clarity this code is reproduced here in a single block
+
+```{r new LDNe genpop, include=TRUE, echo=TRUE, eval=FALSE}
+#first we need the cohorts
+
+# Estimate age directly using values from O'Connor 2011 and FL
+#solve for age
+vbgf3 <- function(L, L_infinity, K_value, t_0) {
+  result <- t_0 - (1 / K_value) * log(1 - (L / L_infinity))
+  return(result)
+}
+
+# Estimating age at length
+# info:
+# Best fitting parmaters for Males
+Linf <- 798.94# cm TL
+k <- 0.047 # 
+L0 <- 140 #cm 
+T0 <- -3.8 #years 
+Males <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# Best fitting paramters for Females 
+Linf<- 719.02# cm TL
+k<- 0.056 # 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Females <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+Linf<- 746.66# cm TL
+k<- 0.053# 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Combined <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# female 
+idx_f<- which(meta_data$Sex == "F")
+idx_m<- which(meta_data$Sex == "M")
+
+male_t = sapply(TL[idx_m], function(x) {vbgf3(x, Males[["L_infinity_value"]], Males[["K_value"]], Males[["t_0_value"]])})
+female_t = sapply(TL[idx_f], function(x) {vbgf3(x, Females[["L_infinity_value"]], Females[["K_value"]], Females[["t_0_value"]])})
+
+# Cohort is equal to year sampled minus age
+male_age = trunc(meta_data$modified_year[idx_m] -  male_t)
+female_age = trunc(meta_data$modified_year[idx_f] -  female_t) # including some samples, ie. MBB1348 depends on how you round the age or the year
+output = tibble::tibble(STRATA = c(male_age, female_age), MBB_CODE = c(meta_data$MBB_Code[idx_m], meta_data$MBB_Code[idx_f]))
+readr::write_tsv(output, "Data/Processed/New_Cohort_Assignment.tsv")
+
+cohort_assignment_file <- "Data/Processed/New_Cohort_Assignment.tsv"
+cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assignment
+  separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
+  unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+  
+
+#filtration happens here
+source("filter_script.R")
+
+#load filteed genotypes
+gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
+
+gl_file$ind.names <- str_replace(gl_file$ind.names, "-", "_")
+
+ind_order = tibble::tibble(MBB_CODE_JOIN = gl_file$ind.names, OLD_STRATA = gl_file@pop) %>%
+  left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
+
+gl_file@pop <- as.factor(ind_order$STRATA)
+dartR::gl2genepop(gl_file, outfile = "genotypes_for_Ne.gen", outpath = "Data/Processed/NeEstimator")
+
+```
+
 # R Settings
 
 ```{r}
