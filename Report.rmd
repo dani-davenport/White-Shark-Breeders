@@ -63,7 +63,7 @@ new_cohort_assignment <- TRUE
 use_fixed_genotypes <- "new" 
 
 #adjust these if you want the relevant chunks to run
-rerun_COLONY <- TRUE
+rerun_COLONY <- FALSE
 
 #COLONY params for simulations that will actually be used
 COLONY_run_length <- 2
@@ -73,7 +73,7 @@ COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
 
 #see scenarios section for parameter choices
-rerun_COLONY_all <- TRUE
+rerun_COLONY_all <- FALSE
 
 rerun_LDNE <- TRUE
 
@@ -675,7 +675,7 @@ data$Nb_COM_lower <- data$Nb_COM_est - sqrt(data$var_COM)
 data$Nb_COM_upper <- data$Nb_COM_est + sqrt(data$var_COM)
 
 data$Nb_COM_SD <- sqrt(data$var_COM)
-data$Nb_Na_ratio <- data$Nb_COM_est / Na_for_ratios
+data$Na_Nb_ratio <- data$Nb_COM_est / Na_for_ratios
 
 data %>% write_csv("./Results/ResultsComplete.csv")
 
@@ -975,7 +975,7 @@ A new file '/Original Project Files/Results/Original_Results.xlsx' has been crea
 
 ```{r}
 
-comparison_variables <- c("Year",	"S",	"Nb_LD_est",	"Nb_LD_lower",	"Nb_LD_upper",	"Nb_SA_est",	"Nb_SA_lower",	"Nb_SA_upper", "Nb_COM_est",	"Nb_COM_SD", "Nb_Na_ratio")
+comparison_variables <- c("Year",	"S",	"Nb_LD_est",	"Nb_LD_lower",	"Nb_LD_upper",	"Nb_SA_est",	"Nb_SA_lower",	"Nb_SA_upper", "Nb_COM_est",	"Nb_COM_SD", "Na_Nb_ratio")
 
 original_data <- read_xlsx('./Original Project Files/Results/Original_Results.xlsx') %>% select(all_of(comparison_variables))
 new_data <- read_csv("./Results/ResultsComplete.csv") %>% select(all_of(comparison_variables))

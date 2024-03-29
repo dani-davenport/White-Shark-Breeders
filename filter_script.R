@@ -270,7 +270,6 @@ df_basic_stats <- gl.basic.stats(gl_15, digits = 4)
 df_perloc <- data.frame(df_basic_stats$perloc)
 df_fis_not_within_threshold <- df_perloc[abs(df_perloc$Fis) > FIS_THRESHOLD, ]
 
-
 env_loci_to_remove <- row.names(df_fis_not_within_threshold)
 
 #find and replace certain chars
