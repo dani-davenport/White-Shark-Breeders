@@ -63,7 +63,7 @@ new_cohort_assignment <- TRUE
 use_fixed_genotypes <- "new" 
 
 #adjust these if you want the relevant chunks to run
-rerun_COLONY <- FALSE
+rerun_COLONY <- TRUE
 
 #COLONY params for simulations that will actually be used
 COLONY_run_length <- 2
@@ -322,14 +322,9 @@ if(rerun_COLONY){
   # 2. write the same file to COLONY format , check that the file has been written out correctly 
   # 2b. run this file through COLONY
   
-  #for whatever reason the format detector in radiator::genomic_converter gets doesnt work consistently with the old and new data
-  #but this fix avoids the error
-  
-  if(use_fixed_genotypes){
-    pops <- radiator::genomic_converter("Data/Processed/NeEstimator/genotypes_for_Ne.gen")
-  }else{
-    pops <- radiator::genomic_converter(gl_file)
-}
+
+  pops <- radiator::genomic_converter("Data/Processed/NeEstimator/genotypes_for_Ne.gen")
+  #pops <- radiator::genomic_converter(gl_file)
   
   
   clean_up_radiator_temp_files <- function(){
@@ -380,6 +375,7 @@ if(rerun_COLONY){
   
   if(rerun_COLONY_all){
     COLONY_sims_list <- list(
+      scenario_final = list(run_length = COLONY_run_length, allele_freq = COLONY_allele_freq, dropout = COLONY_dropout, error_rate = COLONY_error_rate, random_seed = COLONY_random_seed),
       scenario_00 = list(run_length=1, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234), #original quick
       scenario_01 = list(run_length=1, allele_freq = "overall", dropout = 0, error_rate = 0.02, random_seed = 1234), #original with overall allele ests
       scenario_02 = list(run_length=1, allele_freq = NULL, dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018
