@@ -16,8 +16,7 @@ radiator_colony2 <- function (data, filename, allele.freq = NULL, inbreeding = 0
                                        allele.freq) %>% dplyr::filter(ALLELES != 0)
     }
     else {
-      input.alleles <- dplyr::filter(.data = data, ALLELES != 
-                                       0)
+      input.alleles <- dplyr::filter(.data = data, ALLELES !=  0)
     }
     allele.per.locus <- dplyr::distinct(input.alleles, MARKERS, 
                                         ALLELES) %>% dplyr::count(x = ., MARKERS) %>% dplyr::arrange(MARKERS) %>% 
@@ -38,15 +37,16 @@ radiator_colony2 <- function (data, filename, allele.freq = NULL, inbreeding = 0
                                                            pattern = "NA", replacement = "", vectorize_all = FALSE), 
                     INFO = stringi::stri_trim_right(str = INFO, pattern = "\\P{Wspace}")) %>% 
       dplyr::select(-MARKERS, -ALLELES_FREQ)
-    input.alleles <- NULL
+    #input.alleles <- NULL
+  }else{
+    input.alleles <- dplyr::filter(.data = data, ALLELES !=  0)
   }
   
   if (!is.null(pop.select)) {
     data %<>% dplyr::filter(POP_ID %in% pop.select)
   }
   
-  markers.name <- dplyr::distinct(data, MARKERS) %>% dplyr::arrange(MARKERS) %$% 
-    MARKERS
+  markers.name <- input.alleles %>% dplyr::distinct(MARKERS) %>% dplyr::arrange(MARKERS) %$% MARKERS
   marker.num <- length(markers.name)
   data <- tidyr::unite(data = data, col = MARKERS.ALLELE_GROUP, 
                        MARKERS, ALLELE_GROUP, sep = ".") %>% radiator::rad_wide(x = ., 
@@ -122,7 +122,8 @@ radiator_colony2 <- function (data, filename, allele.freq = NULL, inbreeding = 0
   readr::write_file(x = analysis.opt, file = filename, append = TRUE)
   precision.opt <- "3                                    ! 1/2/3=low/medium/high Precision for Full likelihood\n"
   readr::write_file(x = precision.opt, file = filename, append = TRUE)
-  markers.name.opt <- stringi::stri_join(markers.name, collapse = " ")
+  #markers.name.opt <- stringi::stri_join(markers.name, collapse = " ")
+  #markers.name.opt <- stringi::stri_join(markers.name.opt,  " ! Marker IDs\n")
   markers.name.opt <- "MK@ ! Marker IDs\n" #stringi::stri_join(markers.name.opt,  " ! Marker IDs\n")
   readr::write_file(x = markers.name.opt, file = filename,   append = TRUE)
   marker.type.opt <- stringi::stri_join(rep(0, marker.num), 

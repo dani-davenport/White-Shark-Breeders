@@ -73,7 +73,7 @@ COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
 
 #see scenarios section for parameter choices
-rerun_COLONY_all <- TRUE
+rerun_COLONY_all <- FALSE #this is very slow and only really needed for the sensitivity testing stuff
 
 rerun_LDNE <- TRUE
 
@@ -449,11 +449,17 @@ if(rerun_COLONY){
 #This section is set up for running on Linux only
 #colony2s.ifort.out needs to be in "./Executables/COLONY"
 #may actually work on other machines (e.g. non M chip Macs) if correct file is placed and relevant changes made
+
+
+#scenarios with overall pop allele freq dont always work due to bug in COLONY script code. I believe has something to do with allele names
+
 if(rerun_COLONY){
   
   run_colony <- function(c_f_i){
     
       c_f_o <- str_replace(c_f_i, "input", "output")
+      
+      #need to specify this 
       absolute_path <- "/home/andrew/Desktop/White-Shark-Breeders"
       
     #run COLONY
@@ -468,14 +474,14 @@ if(rerun_COLONY){
   colony_files <- list.files("./Data/Processed/COLONY/")
   
   #code below to skip already completed results
-  # already_done <- list.files("./Results/COLONY/")
-  # already_done <- str_replace(already_done, "output", "input")
-  # colony_files <- setdiff(colony_files, already_done)
-  # colony_files <- colony_files[complete.cases(colony_files)]
+  already_done <- list.files("./Results/COLONY/")
+  already_done <- str_replace(already_done, "output", "input")
+  colony_files <- setdiff(colony_files, already_done)
+  colony_files <- colony_files[complete.cases(colony_files)]
   
-  if(!rerun_COLONY_all){
-    colony_files <- colony_files[str_detect(colony_files, "final")]
-  }
+  # if(!rerun_COLONY_all){
+  #   colony_files <- colony_files[str_detect(colony_files, "final")]
+  # }
   
   parallel::mclapply(colony_files,
     run_colony,
@@ -991,6 +997,11 @@ See earlier parts of this report. More can be added if required.
 ## The final LD Ne datafile used to make the corrected estimates of Nb. 
 
 This can be found in /Data/Processed/NeEstimator/genotypes_for_Ne.gen 
+
+List of loci used also saved to /Data/Processed/loci_names.csv
+```{r}
+gl_file@loc.names %>% as.data.frame() %>% write_csv("./Data/Processed/loci_names.csv")
+```
 
 ## The overall LD Ne estimate. 
 
