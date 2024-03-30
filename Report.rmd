@@ -55,7 +55,7 @@ dodge <- position_dodge(width=0.5)
 
 ```{r parameter settings}
 
-#use the fixed cohorts
+#use the corrected cohorts
 new_cohort_assignment <- TRUE
 
 #use the new fixed genomes or old or new with filitration that matches old
@@ -67,13 +67,13 @@ rerun_COLONY <- TRUE
 
 #COLONY params for simulations that will actually be used
 COLONY_run_length <- 2
-COLONY_allele_freq <- NULL # vs "overall" for population averages
+COLONY_allele_freq <- NULL # vs "overall" for population averages. 
 COLONY_dropout <- 0 
 COLONY_error_rate <- 0.02
 COLONY_random_seed <- 1
 
 #see scenarios section for parameter choices
-rerun_COLONY_all <- FALSE #this is very slow and only really needed for the sensitivity testing stuff
+rerun_COLONY_all <- FALSE #this is very slow and only really needed for the sensitivity testing stuff, wouldnt normally rerun this
 
 rerun_LDNE <- TRUE
 
@@ -84,8 +84,6 @@ p_crit_chosen <- 0.05
 include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
 
 Na_for_ratios <- 750 #from Bruce et al. (2018)
-
-#using old data for cohorts and genotypes, no 2014, pcrit 2014, defaults for COLONY should regenerate the original published results exactly
 
 ```
 
@@ -990,7 +988,7 @@ A new file '/Original Project Files/Results/Original_Results.xlsx' has been crea
 
 ```{r}
 
-comparison_variables <- c("Year",	"S",	"Nb_LD_est",	"Nb_LD_lower",	"Nb_LD_upper",	"Nb_SA_est",	"Nb_SA_lower",	"Nb_SA_upper", "Nb_COM_est",	"Nb_COM_SD", "Na_Nb_ratio")
+comparison_variables <- c("Year",	"S",	"Nb_LD_est",	"Nb_LD_lower",	"Nb_LD_upper",	"Nb_SA_est",	"Nb_SA_lower",	"Nb_SA_upper", "Nb_COM_est",	"Nb_COM_SD", "Na_Nb_ratio", "FS_count_Nb_SA",	"HS_count_Nb_SA")
 
 original_data <- read_xlsx('./Original Project Files/Results/Original_Results.xlsx') %>% select(all_of(comparison_variables))
 new_data <- read_csv("./Results/ResultsComplete.csv") %>% select(all_of(comparison_variables))

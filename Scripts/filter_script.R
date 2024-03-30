@@ -23,6 +23,8 @@ XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
 #loci to remove based on PCAS
 df_pcadapt_loci_to_remove_final <- read.table(file=file.path('./Data/Raw', "3_pops_WAS_as_SAS.pcadapt.results.outlier_loci.qvalues.CACA_2021.Davenport_Dart_Orig_Loci.gl_dart_0_0_v2.csv"), header=FALSE, sep=",")
 
+skip_steps_w_outside_data <- TRUE # this doesnt include the duplicates, I assume these are known from this data alone
+
 #options for hwe tests
 str_each_or_all_pops <- 'all'
 float_alpha_hwe <- 0.01
@@ -107,7 +109,14 @@ gl_4 <- gl.filter.monomorphs(gl_3)
 
 #DRP INDIVS
 # Samples identified as possibly divergant with filter gl_dart_0_0_v2
-gl_5 <- gl.drop.ind(gl_4, XVALDAPC_BAD_SAMPLES, recalc = TRUE, mono.rm = TRUE, verbose = 5)
+
+if(skip_steps_w_outside_data){
+  gl_5 <- gl_4
+}else{
+  gl_5 <- gl.drop.ind(gl_4, XVALDAPC_BAD_SAMPLES, recalc = TRUE, mono.rm = TRUE, verbose = 5)
+}
+
+
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 4
@@ -190,11 +199,16 @@ gl_13 <- gl.drop.ind(gl_12, DUPLICATE_LIST, recalc = TRUE, mono.rm = TRUE, verbo
 # DAVENPORT DATASET_Nb - Step 12a
 # FILTER BY ADAPTATION LOCI USING GENOTYPE MATRIX WITH PC AND Q-VALUE
 
-# Remove loci from GENLIGHT
-env_pcadapt_loci_to_remove <- c(df_pcadapt_loci_to_remove_final[,1])
 
-#DROP LOCI
-gl_14 <- gl.drop.loc(gl_13, env_pcadapt_loci_to_remove, verbose = 5)
+if(skip_steps_w_outside_data){
+  gl_14 <- gl_13
+}else{
+  # Remove loci from GENLIGHT
+  env_pcadapt_loci_to_remove <- c(df_pcadapt_loci_to_remove_final[,1])
+  
+  #DROP LOCI
+  gl_14 <- gl.drop.loc(gl_13, env_pcadapt_loci_to_remove, verbose = 5)
+}
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 12b

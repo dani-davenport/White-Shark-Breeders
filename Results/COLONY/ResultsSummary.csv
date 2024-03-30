@@ -3,7 +3,7 @@ Year,Scenario,Nb_SA_est,Nb_SA_lower,Nb_SA_upper
 2011,scenario_00,234,146,504
 2012,scenario_00,204,139,331
 2013,scenario_00,152,108,218
-2014,scenario_00,127,70,424
+2014,scenario_00,127,69,356
 2010,scenario_01,81,50,146
 2011,scenario_01,173,109,311
 2012,scenario_01,161,108,265
@@ -59,8 +59,8 @@ Year,Scenario,Nb_SA_est,Nb_SA_lower,Nb_SA_upper
 2012,scenario_11,196,133,319
 2013,scenario_11,152,109,221
 2014,scenario_11,127,71,358
-2010,scenario_final,96,58,194
-2011,scenario_final,234,144,492
-2012,scenario_final,196,133,319
-2013,scenario_final,152,109,221
-2014,scenario_final,127,71,358
+2010,scenario_final,96,57,206
+2011,scenario_final,228,141,484
+2012,scenario_final,204,139,345
+2013,scenario_final,158,113,231
+2014,scenario_final,127,71,444
