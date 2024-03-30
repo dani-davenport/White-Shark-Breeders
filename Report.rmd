@@ -458,9 +458,11 @@ if(rerun_COLONY){
   run_colony <- function(c_f_i){
     
       c_f_o <- str_replace(c_f_i, "input", "output")
+      c_f_o_FS <- str_replace(c_f_o, ".txt", "_FS.txt")
+      c_f_o_HS <- str_replace(c_f_o, ".txt", "_HS.txt")
       
-      #need to specify this 
-      absolute_path <- "/home/andrew/Desktop/White-Shark-Breeders"
+      #may need to specify this manually
+      absolute_path <- getwd()#"/home/andrew/Desktop/White-Shark-Breeders"
       
     #run COLONY
     system(paste0(absolute_path, "/Executables/COLONY/colony2s.ifort.out OFN:",
@@ -469,19 +471,22 @@ if(rerun_COLONY){
    
     #copy the Ne results to the results folder
     system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".Ne ", absolute_path, "/Results/COLONY/", c_f_o))
+    #might need to report numbers of full and half sibs so save these outputs too
+    system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".PairwiseHalfSibDyad ", absolute_path, "/Results/COLONY/", c_f_o_HS))
+    system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".PairwiseFullSibDyad ", absolute_path, "/Results/COLONY/", c_f_o_FS))
   }
   
   colony_files <- list.files("./Data/Processed/COLONY/")
   
-  #code below to skip already completed results
-  already_done <- list.files("./Results/COLONY/")
-  already_done <- str_replace(already_done, "output", "input")
-  colony_files <- setdiff(colony_files, already_done)
-  colony_files <- colony_files[complete.cases(colony_files)]
+  # #code below to skip already completed results
+  # already_done <- list.files("./Results/COLONY/")
+  # already_done <- str_replace(already_done, "output", "input")
+  # colony_files <- setdiff(colony_files, already_done)
+  # colony_files <- colony_files[complete.cases(colony_files)]
   
-  # if(!rerun_COLONY_all){
-  #   colony_files <- colony_files[str_detect(colony_files, "final")]
-  # }
+  if(!rerun_COLONY_all){
+    colony_files <- colony_files[str_detect(colony_files, "final")]
+  }
   
   parallel::mclapply(colony_files,
     run_colony,
