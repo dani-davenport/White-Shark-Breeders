@@ -63,7 +63,7 @@ new_cohort_assignment <- TRUE
 use_fixed_genotypes <- "new" 
 
 #adjust these if you want the relevant chunks to run
-rerun_COLONY <- TRUE
+rerun_COLONY <- FALSE
 
 #COLONY params for simulations that will actually be used
 COLONY_run_length <- 2
@@ -75,7 +75,7 @@ COLONY_random_seed <- 1
 #see scenarios section for parameter choices
 rerun_COLONY_all <- FALSE #this is very slow and only really needed for the sensitivity testing stuff, wouldnt normally rerun this
 
-rerun_LDNE <- TRUE
+rerun_LDNE <- FALSE
 
 #p_crit choices
 p_crit_list <- c(0, 0.02, 0.05) 
@@ -520,12 +520,21 @@ for (i in seq_len(length(colony_results_files))){
   Nb_SA_upper <- as.numeric(na.omit(str_match(res, "^CI95\\(U\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
   Nb_SA_lower <- as.numeric(na.omit(str_match(res, "^CI95\\(L\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
   
-  #counts of full and half sibs
-  res_FS <- readLines(file.path("./Results/COLONY/",  str_replace(c_f_o, ".txt", "_FS.txt")))
-  FS_count_Nb_SA <- length(res_FS)-1
   
-  res_HS <- readLines(file.path("./Results/COLONY/",  str_replace(c_f_o, ".txt", "_HS.txt")))
-  HS_count_Nb_SA <- length(res_HS)-1
+  if(file.exists(file.path("./Results/COLONY",  str_replace(c_r_f, ".txt", "_FS.txt")))){
+    #counts of full and half sibs
+    res_FS <- readLines(file.path("./Results/COLONY",  str_replace(c_r_f, ".txt", "_FS.txt")))
+    FS_count_Nb_SA <- length(res_FS)-1
+  }else{
+    FS_count_Nb_SA <- NA
+  }
+  
+  if(file.exists(file.path("./Results/COLONY",  str_replace(c_r_f, ".txt", "_HS.txt")))){
+    res_HS <- readLines(file.path("./Results/COLONY/",  str_replace(c_r_f, ".txt", "_HS.txt")))
+    HS_count_Nb_SA <- length(res_HS)-1
+  }else{
+    HS_count_Nb_SA <- NA
+  }
   
   col_list[[i]] <- data.frame(Year, Scenario, Nb_SA_est, Nb_SA_lower, Nb_SA_upper, FS_count_Nb_SA, HS_count_Nb_SA)
 }
