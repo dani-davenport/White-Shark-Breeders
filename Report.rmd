@@ -15,7 +15,7 @@ knitr::opts_chunk$set(dpi = 400,
                       message=FALSE, 
                       fig.show=TRUE, 
                       fig.keep = 'all', 
-                      fig.path= 'figures/'
+                      fig.path= 'Figures/'
 )
 
 library(dartR)
@@ -507,6 +507,7 @@ if(rerun_COLONY){
 #need to read COLONY data in from files
 
 colony_results_files <- list.files("./Results/COLONY/")
+colony_results_files <- colony_results_files[str_detect(colony_results_files, "^COLONY_output_scenario_[a-zA-Z0-9]+_[0-9]{4}.txt$")]
 
 col_list <- list()
 
@@ -521,7 +522,14 @@ for (i in seq_len(length(colony_results_files))){
   Nb_SA_upper <- as.numeric(na.omit(str_match(res, "^CI95\\(U\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
   Nb_SA_lower <- as.numeric(na.omit(str_match(res, "^CI95\\(L\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
   
-  col_list[[i]] <- data.frame(Year, Scenario, Nb_SA_est, Nb_SA_lower, Nb_SA_upper)
+  #counts of full and half sibs
+  res_FS <- readLines(file.path("./Results/COLONY/",  str_replace(c_f_o, ".txt", "_FS.txt")))
+  FS_count_Nb_SA <- length(res_FS)-1
+  
+  res_HS <- readLines(file.path("./Results/COLONY/",  str_replace(c_f_o, ".txt", "_HS.txt")))
+  HS_count_Nb_SA <- length(res_HS)-1
+  
+  col_list[[i]] <- data.frame(Year, Scenario, Nb_SA_est, Nb_SA_lower, Nb_SA_upper, FS_count_Nb_SA, HS_count_Nb_SA)
 }
 
 All_COLONY_data <- bind_rows(col_list) %>% filter(Year >= 2010, Year <= 2014)
