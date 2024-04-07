@@ -906,7 +906,9 @@ glsfit$.lower <- glsfit$.fitted - qnorm(0.975) * SEline
 
 ```
 
-Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`). This model only accounts for correlation. It doesn't resolve any of the other issues such as asymetric CIs, or incorporate other known information such as the variances of each estimate. However these tests for a trend are likely suitable here as 4 points are very unlikely to show evidence of a trend regardless. I do not believe anyone has published on this as of 2024, let alone at the time of the original publication. 
+Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`). This model only accounts for correlation. It doesn't resolve any of the other issues such as asymetric CIs, or incorporate other known information such as the variances of each estimate.
+
+However these tests for a trend are likely suitable here as 4 points are very unlikely to show evidence of a trend regardless of method used. As of 2024, I do not believe anyone has published on either the use of regression models incorporating temporal correlations for use in detecting trends in effective population sizes, or any trend detecting methodolgies using r^2 values directly. As such, using OLS regression on the Nb values is effectively the state of the art.
 
 ```{r trend4_plot, echo=FALSE}
 ggplot(glsfit, aes(x = Year)) + geom_point(aes(y=Nb_LD_est)) + geom_line(aes(y=.fitted), col=LD_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb LD with GLS trend (AR1 correlation only)") + coord_cartesian(ylim = c(0,500)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) 
