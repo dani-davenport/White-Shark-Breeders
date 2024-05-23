@@ -1,0 +1,6 @@
+Year,S,Nb_LD_est,Nb_LD_lower,Nb_LD_upper,r_star,p_crit,Scenario,Nb_SA_est,Nb_SA_lower,Nb_SA_upper,FS_count_Nb_SA,HS_count_Nb_SA
+2010,29,62.4,33,246.8,0.004801,0.05,scenario_final,96,60,186,7,3
+2011,40,214.8,113.9,1153.1,0.001537,0.05,scenario_final,240,151,589,4,5
+2012,51,202.2,123.8,487.9,0.001632,0.05,scenario_final,196,139,323,7,13
+2013,62,172.8,117.9,303.8,0.001906,0.05,scenario_final,158,112,234,16,25
+2014,23,99.4,47.2,4025.9,0.003048,0.05,scenario_final,127,69,356,3,2

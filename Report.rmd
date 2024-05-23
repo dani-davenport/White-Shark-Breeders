@@ -1,0 +1,1170 @@
+---
+title: "White Shark Number of Breeders Re-Analysis 2024"
+author: "Andrew Jones"
+bibliography: bib.bib
+output: html_document 
+---
+
+
+```{r setup, message=F, echo = F, warnings = F}
+
+knitr::opts_chunk$set(dpi = 400, 
+                      echo=TRUE, # change true or false here whether you want to show the R code
+                      include=TRUE,
+                      warning=FALSE, 
+                      message=FALSE, 
+                      fig.show=TRUE, 
+                      fig.keep = 'all', 
+                      fig.path= 'Figures/'
+)
+
+library(dartR)
+library(tidyverse)
+library(hierfstat)
+library(gt)
+library(nlme)
+
+#remotes::install_github("thierrygosselin/radiator")
+#library(radiator)
+
+library(ggplot2)
+library(here)
+library(readxl)
+
+
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(readr)
+library(stringr)
+
+#install.packages("remotes")
+  
+source("./Scripts/colony_script.R") #radiator had bug so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
+source("./Scripts/colony_script2.R")
+  
+#some graph settings for later
+width <- 0.2
+SA_col <- "darkblue"
+LD_col <- "darkred"
+COM_col <- "darkgreen"
+dodge <- position_dodge(width=0.5)
+```
+
+# Parameter Choices
+
+```{r parameter settings}
+
+#use the corrected cohorts
+new_cohort_assignment <- TRUE
+
+#use the new fixed genomes or old or new with filitration that matches old
+# "new" or "old" or "new_w_old_filt"
+use_fixed_genotypes <- "new" 
+
+#adjust these if you want the relevant chunks to run
+rerun_COLONY <- FALSE
+
+#COLONY params for simulations that will actually be used
+COLONY_run_length <- 2
+COLONY_allele_freq <- NULL # vs "overall" for population averages. 
+COLONY_dropout <- 0 
+COLONY_error_rate <- 0.02
+COLONY_random_seed <- 1
+
+#see scenarios section for parameter choices
+rerun_COLONY_all <- FALSE #this is very slow and only really needed for the sensitivity testing stuff, wouldnt normally rerun this
+
+rerun_LDNE <- FALSE
+
+#p_crit choices
+p_crit_list <- c(0, 0.02, 0.05) 
+p_crit_chosen <- 0.05
+
+include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
+
+Na_for_ratios <- 750 #from Bruce et al. (2018)
+
+```
+
+# Overview 
+
+This document/repository contains and outlines the re-analysis of the data presented in Davenport et al 2021 @davenport2021effective, as re-re-analysed by Andrew Jones.  
+
+The authors were made aware of a bug or error in the output-files used in both NeEstimator and Colony to estimate the number of breeders per cohort.  This error caused the data to become shuffled. Below, analysis is presented comparing the published data to files made directly from the original raw data. The input files for Nb estimation for NeEstimator and COLONY are re-made using raw data (based on the published loci) and the updated results are presented. The published work further sought to combine estimators of effective size to make reporting and decision making easier - combined estimates of Nb per-cohort. Here using the revised results we also make these re-estimates.  
+
+
+# Background 
+
+In Davenport et al., 2021, the effective number of breeders (Nb) was estimated in 4 consecutive cohorts (2010-2013) based on the premise that when a genetic sample contains only individuals from a single age cohort (a group of individuals having the same age-class), then the estimate of effective population size (Ne) from a single-sample estimator in species with overlapping generations corresponds to the effective number of breeders (Nb). For long-lived, iteroparous species such as the white shark, estimates of Nb are generally considered more useful for monitoring as they apply to a single breeding season (rather than needing a sample representative of a generation - an assumption of Ne (see @waplesWhatAnyway2022)), and it represents an accessible parameter for monitoring population trends at ecological timescales most relevant to conservation and management needs. Nb is particularly useful in cases where juvenile or YOY samples can be easily collected (i.e. through SMART shark program NSW). Estimating Nb and monitoring its change over time allows timely detection of population trends (decline, restoration, recovery, expansion), even if using as few as four or five consecutive reproductive cycles (@leberg2005genetic; @wangEstimationEffectivePopulation2005;  @luikartDetectingPopulationDeclines2021).  
+  
+# Data 
+
+The original DArT data for this project can be found in the file /Data/Raw  
+The results of the reanalysis can be found in /Results.
+
+The processed Data is found in /Data/processed.
+
+The filtered list of loci from the published analysis can be found in Data/Raw/Report-DSha18-3402/File_Formats/Genepop_NeEstimator_Input/nswdpi_whiteshark_gp.gen.
+
+The loci names were extracted from this document to ensure the data from the publication are used in the reanalysis here.  Readers are referred to the original publication @davenport2021effective for more detailed methods. In summary, a list of loci/SNPs which meet the articles filtering criteria are saved in the '.gen' file. These are used here to re-make the input files for NeEstimator and COLONY from the original raw-data, from which Nb per cohort is re-estimated.The full raw data is also used to re-estimate Nb using a sensitivity analysis of loci/individuals. 
+
+# Confirmation of Issue in Original Manuscript
+## Setup data
+
+A bug in an R-package used in the original publication is suspected to have introduced inconsistencies into the output files used in the final analysis.
+
+```{r Quantify Error, echo = T, include =T}
+# read in published strata
+strata_info = read.table("Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv", header = T) # used in the published ms 
+
+# read in published genepop file affected by bug - herein refered to as 'orig-genepop'
+orig_gp <- adegenet::read.genepop(file = "Original Project Files/File_Formats/Genepop_NeEstimator_Input/nswdpi_whiteshark_gp.gen", ncode = 3L, quiet = TRUE)
+orig_gl <- dartR::gi2gl(orig_gp)
+nInd(orig_gl)
+nLoc(orig_gl)
+# it didnt fix the names, so do it here
+orig_gl@loc.names<-  gsub("CHROM_1-",                     "",stringr::str_replace_all(orig_gl@loc.names,"__","-"))  # change whitelist loci seperators so they are in the fornat needed to match the genlight obj
+
+# 'new_genepop'
+# read in orgional data, and use the list of loci to make a new dataset - herein refered to as 'new-genepop'
+input_gl = dartR::gl.read.dart("Data/Raw/Report_DSha18-3402_SNP_2_ReLabeled.csv")
+# change the GL loci names so they are in a suitable format 
+input_gl@loc.names <- gsub("^(.*?-.*?)-.*", "\\1", input_gl@loc.names)
+# filter the gl to have the same loci as used in 'orig-gp'
+order_loci <- sapply(orig_gl@loc.names, function(x,order){which(order == x)}, order = input_gl@loc.names)
+new_gl <- input_gl[,order_loci]
+# dartR has a bug where it doesnt fix up other information stored in other
+dim(new_gl@other$loc.metrics)
+new_gl@other$loc.metrics <- new_gl@other$loc.metrics[order_loci,]
+# match so the files have the same samples, in the same order
+order_ind <- sapply(orig_gl@ind.names, function(x,order){which(order == x)}, order = stringr::str_replace_all(new_gl@ind.names, "_", "-"))
+new_gl <- new_gl[order_ind,]
+# check
+nLoc(new_gl)
+nInd(new_gl)
+dim(new_gl@other$loc.metrics)
+# add the population information, also make sure its in the right order
+pop = dplyr::left_join(tibble::tibble(TARGET_ID=stringr::str_replace_all(new_gl@ind.names, "_", "-")), strata_info, by = "TARGET_ID")
+new_gl@pop<- factor(pop$STRATA)
+# check 
+which(head(stringr::str_replace_all(new_gl@ind.names, "_", "-")) ==  head(orig_gl@ind.names))
+which(head(orig_gl@loc.names) == head(new_gl@loc.names))
+
+```
+
+## Quantify differences in missingness between the published and new dataset 
+
+```{r missingness1, message = F, echo = T}
+# compare the old and the new files for missingness
+# print out each genlight to get info on missngness, loci, invidual
+orig_gl
+```
+
+```{r missingness2, message = F, echo = T}
+# compare the old and the new files for missingness
+# print out each genlight to get info on missingness, loci, individual
+new_gl
+```
+These results show the number of individuals and the number of loci does not change between the published and the new dataset. However, the number of missing data in the published dataset is 4506, while the re-analysis dataset missingingess is 4503.
+ 
+## Visualise the difference between the published and new dataset 
+
+```{r allele_pattern_comparison, message = F, caption = "Visualisation of datasets showing published data (top) and new data (bottom). The colours are inverted, where the new file and old file have the 1st allele listed differently (makes no difference to the final result). However, given the SNP index is the same between files (loci are in the same order), and individuals are supposedly in the same order, it appears the published data has been shuffled or inverted"}
+# visualize the data
+ogplot = adegenet::glPlot(orig_gl, posi="topleft")
+newplot = adegenet::glPlot(new_gl, posi="topleft")
+
+```
+```{r pca of data, message = F, caption = "Visualisation of datasets showing published data (top) and new data (bottom). A PCA (axis 1-2_ showing the location of individuals, highlighting differences between the published and new dataset"}
+orig_gl_m = gl2gi(orig_gl, v = 1)
+orig_gl.scaled_b<- adegenet::scaleGen(orig_gl_m, NA.method= "zero")
+pca_og<- dudi.pca(orig_gl.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
+old = factoextra::fviz_pca_ind(pca_og, axes = c(1,2))
+
+new_gl_m = gl2gi(new_gl, v = 1)
+new_gl.scaled_b<- adegenet::scaleGen(new_gl_m, NA.method= "zero")
+pca_new<- dudi.pca(new_gl.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
+new = factoextra::fviz_pca_ind(pca_new, axes = c(1,2))
+par(mfrow = c(1, 2))
+old
+new
+```
+
+## Discussion of error
+Main points:
+
+* Error definitely present as described in analysis by Dean and Paul.
+* Error changes data in a way that would be expected to have some impact estimates of Nb
+* Error needs to be corrected  
+  
+
+# Corrected Ne Estimates
+# # New analysis 
+To avoid issues that may have unknowingly arisen throughout the pipeline of the  original study, here we use the raw data, we filter following the steps from the original manuscript (using code in filter_script_dataset a and b) which implements updated r-packages available at the time of this correction and re-make the Nb estimates. These estimates are presented in the corrected manuscript.  
+  
+
+# # New cohort assignment
+  
+The new cohort assignment file "Data/Processed/New_Cohort_Assignment.tsv" is created by running the the following chunks.
+  
+The von Bertanlaffy parameters used are from are from @o2011age. Further work could be done exploring the impact of parameter choices, however initial work suggests the Nb estimates are fairly robust to small numbers of individuals being allocated to different cohorts, however allocation to cohorts appears sensitive to variables in the VBGF. 
+
+```{r new cohorts, eval = F}
+
+meta_data <- readr::read_csv("Data/Raw/Copy of UPDTAED LAT LONGS UQ genetics PhD181018 Paul Butcher NSW DPI.csv") %>%
+  #select(MBB_Code, FL, TL) %>%
+  mutate(date_column = as.Date(`Date tagged`, format="%d/%m/%y"),
+         modified_year = year(date_column))
+
+# 1. relationship between TL and FL 
+lm1 <- lm(meta_data$TL ~ meta_data$FL)
+
+Tl_intercept <- lm1$coefficients[1]
+Tl_slope <- lm1$coefficients[2]
+#
+Tl_intercept <- floor(Tl_intercept * 100) / 100
+Tl_slope <- floor(Tl_slope * 100) / 100 # eq (1) manuscript , round down to two decimal places
+
+TL <- sapply(meta_data$FL, function(x) {Tl_intercept + x * Tl_slope}) # eq (1) manuscript 
+
+```
+
+
+```{r new cohorts2, eval = F}
+
+# Estimate age directly using values from O'Connor 2011 and FL
+#solve for age
+vbgf3 <- function(L, L_infinity, K_value, t_0) {
+  result <- t_0 - (1 / K_value) * log(1 - (L / L_infinity))
+  return(result)
+}
+# Estimating age at length
+# info:
+# Best fitting parmaters for Males
+Linf <- 798.94# cm TL
+k <- 0.047 # 
+L0 <- 140 #cm 
+T0 <- -3.8 #years 
+Males <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# Best fitting paramters for Females 
+Linf<- 719.02# cm TL
+k<- 0.056 # 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Females <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+Linf<- 746.66# cm TL
+k<- 0.053# 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Combined <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# female 
+idx_f<- which(meta_data$Sex == "F")
+idx_m<- which(meta_data$Sex == "M")
+
+male_t = sapply(TL[idx_m], function(x) {vbgf3(x, Males[["L_infinity_value"]], Males[["K_value"]], Males[["t_0_value"]])})
+female_t = sapply(TL[idx_f], function(x) {vbgf3(x, Females[["L_infinity_value"]], Females[["K_value"]], Females[["t_0_value"]])})
+
+# Cohort is equal to year sampled minus age
+male_age = trunc(meta_data$modified_year[idx_m] -  male_t)
+female_age = trunc(meta_data$modified_year[idx_f] -  female_t) # including some samples, ie. MBB1348 depends on how you round the age or the year
+output = tibble::tibble(STRATA = c(male_age, female_age), MBB_CODE = c(meta_data$MBB_Code[idx_m], meta_data$MBB_Code[idx_f]))
+readr::write_tsv(output, "Data/Processed/New_Cohort_Assignment.tsv")
+```
+
+# New Input files for NeEstimator and COLONY 
+  
+
+Below the input files for NeEstimator and COLONY are remade to make new estimates of Nb using a new file made from the raw data, re filtered following the original steps (see filter_script_manuscript.R, "new_gp").
+  
+
+dartR is used write out a genepop file as input for Ne estimator, and a custom script based on the radiator package is used to write out a COLONY file. These COLONY files also contain the COLONY parameter settings.
+
+```{r make new input file, eval = F, message = F}
+
+# 1. write out new_gp as a genepop , check that the file has been written out correctly 
+# 1a. run this file through NeEstimator
+
+# first its important to make sure that the cohort are correctly assigned 
+
+#some sharks no cohort - why ?no meta data?
+
+if(new_cohort_assignment){
+  cohort_assignment_file <- "Data/Processed/New_Cohort_Assignment.tsv"
+  
+  cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assignment
+  separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
+  unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+  
+}else{
+  cohort_assignment_file <- "Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv"
+  
+  cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assignment
+  separate(INDIVIDUALS, into = c("string1", "string2"), sep = "-", remove = FALSE) %>%
+  unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+}
+
+
+if(use_fixed_genotypes == "old"){
+  gl_file <- orig_gl
+}else if(use_fixed_genotypes == "new"){
+  str_File_Name_FILTERED <-'./Data/Processed/filtered_genotypes_datasetb.RData'
+  gl_file <- readRDS(str_File_Name_FILTERED)
+}else{
+  message("need to choose one of old, new, or new_w_old_filt for use_fixed_genotypes")
+}
+
+gl_file$ind.names <- str_replace(gl_file$ind.names, "-", "_")
+
+ind_order = tibble::tibble(MBB_CODE_JOIN = gl_file$ind.names, OLD_STRATA = gl_file@pop) %>%
+  left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
+
+gl_file@pop <- as.factor(ind_order$STRATA)
+table(gl_file@pop)
+dartR::gl2genepop(gl_file, outfile = "genotypes_for_Ne.gen", outpath = "Data/Processed/NeEstimator")
+```
+```{r pca fig.cap = "PCA checking data before and after it was transformed into a genpop for Nb analysis, before(top) and after(bottom)", eval = T, message = F}
+# check the data was written out correctly, both manually and by visualization using pca
+
+ # before writing out 
+td = gl2gi(gl_file, v = 1)
+td.scaled_b<- adegenet::scaleGen(td, NA.method= "zero")
+pca<- dudi.pca(td.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
+factoextra::fviz_pca_ind(pca, axes = c(1,2))
+
+# after writing out 
+gi = read.genepop("Data/Processed/NeEstimator/genotypes_for_Ne.gen", n = 2)
+gi.scaled_b<- adegenet::scaleGen(gi, NA.method= "zero")
+gipca<- dudi.pca(td.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
+factoextra::fviz_pca_ind(gipca, axes = c(1,2))
+
+# yes this looks good
+```
+
+```{r write colony part1, eval = rerun_COLONY, include=F}
+if(rerun_COLONY){
+  # 2. write the same file to COLONY format , check that the file has been written out correctly 
+  # 2b. run this file through COLONY
+  
+
+  pops <- radiator::genomic_converter("Data/Processed/NeEstimator/genotypes_for_Ne.gen")
+  #pops <- radiator::genomic_converter(gl_file)
+  
+  
+  clean_up_radiator_temp_files <- function(){
+    #clean these up because its gets annoying when they build up
+    radiator_temp_files <- c(str_extract(list.files(), "-[0-9]{3}_radiator_genomic_converter_.*"),
+                             str_extract(list.files(), "-[0-9]{1,3}_filter_monomorphic_.*"))          
+                                       
+    radiator_temp_files <- radiator_temp_files[!is.na(radiator_temp_files)]
+    unlink(file.path(".", radiator_temp_files), recursive = TRUE, force = TRUE)
+  }
+  
+  clean_up_radiator_temp_files()
+}
+```
+
+A number of different parameters settings were used. 
+
+For error and drop out rate, the default settings, as were used originally are based on the recommendations of @wang2004sibship. More recently @wang2018estimating has done further empirical work, and the parameters were also tried as well as some inbetween.
+
+For each of the error and drop out rate options, a version was run with population allele frequencies only based on the cohort (allele.freq = NULL, default setting) and using estimates based on the entire population (allele_freq = "overall"). 
+
+The run length parameter was also experimented with.
+
+```{r write colony, eval = rerun_COLONY, echo=T, include=F}
+#params for colony
+
+#run_length <- 2  #3. is long, 4 is very long, 2 is probably fine for this. is mainly about stability
+
+#allele.freq = NULL #as in originals
+#allele_freq = "overall" #compute from whole population
+
+# #From Wang 2018
+# dropout	<- 0.011
+# error_rate <- 0.001
+# 
+# #in between 1
+# dropout	<- 0.004
+# error_rate <- 0.007
+# 
+# #in between 2
+# dropout	<- 0.007
+# error_rate <- 0.014
+# 
+# #defaults (what was used originally)
+# dropout	<- 0
+# error_rate <- 0.02
+if(rerun_COLONY){
+  
+  if(rerun_COLONY_all){
+    COLONY_sims_list <- list(
+      scenario_final = list(run_length = COLONY_run_length, allele_freq = COLONY_allele_freq, dropout = COLONY_dropout, error_rate = COLONY_error_rate, random_seed = COLONY_random_seed),
+      scenario_00 = list(run_length=1, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234), #original quick
+      scenario_01 = list(run_length=1, allele_freq = "overall", dropout = 0, error_rate = 0.02, random_seed = 1234), #original with overall allele ests
+      scenario_02 = list(run_length=1, allele_freq = NULL, dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018
+      scenario_03 = list(run_length=1, allele_freq = "overall", dropout = 0.011, error_rate = 0.001, random_seed = 1234), #rates from Wang 2018 with overall allele ests
+      scenario_04 = list(run_length=1, allele_freq = NULL, dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1
+      scenario_05 = list(run_length=1, allele_freq = "overall", dropout = 0.004, error_rate = 0.007, random_seed = 1234), #inbetween scenario 1 with overall allele ests
+      scenario_06 = list(run_length=1, allele_freq = NULL, dropout = 0.007, error_rate = 0.014, random_seed = 1234), #inbetween scenario 2
+      scenario_07 = list(run_length=1, allele_freq = "overall", dropout = 0.007, error_rate = 0.014, random_seed = 1234),
+      
+      scenario_08 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 101), #original long run
+      scenario_09 = list(run_length=3, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 100), #original long run
+      scenario_10 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 102), #original med run
+      scenario_11 = list(run_length=2, allele_freq = NULL, dropout = 0, error_rate = 0.02, random_seed = 1234) #original med run
+    )
+  }else{
+    COLONY_sims_list <- list(
+      scenario_final = list(run_length = COLONY_run_length,
+                            allele_freq = COLONY_allele_freq,
+                            dropout = COLONY_dropout,
+                            error_rate = COLONY_error_rate,
+                            random_seed = COLONY_random_seed
+      ) 
+    )
+  }
+  
+  
+  
+  for(j in seq_len(length(COLONY_sims_list))){
+    
+    for(i in 5:9){
+      year <- i + 2005
+      colony_filename <- paste0("Data/Processed/COLONY/COLONY_input_", names(COLONY_sims_list[j]) ,"_", year,".txt")
+      
+      pops$tidy.data %>% 
+        write_colony2(verbose=T, 
+                      pop.select = i,
+                      error.rate = 0.1,
+                      allele.freq = COLONY_sims_list[[j]]$allele_freq,
+                      filename = colony_filename,
+                      inbreeding = 0, #default, HWE
+                      mating.sys.males = 0, #default, poly
+                      mating.sys.females = 0, #default, poly
+                      clone = 0, #default, only an issue in a species with clones + low marker numbers
+                      run.length = COLONY_sims_list[[j]]$run_length,
+                      analysis = 1, #default, full likelihood, is most accurate
+                      allelic.dropout = COLONY_sims_list[[j]]$dropout,
+                      random.seed = COLONY_sims_list[[j]]$random_seed
+        )
+      clean_up_radiator_temp_files()
+    }
+  }
+  
+  
+}  
+#other settings left as default
+#Sibship size prior.To use the prior, you are asked to provide the (estimated) average paternal (np) and maternal (nm) sibship size, and the value of x. When one has no idea of the average sibship size, use x=0 (No prior) and you are not asked about the np and nm values. Otherwise, use x=0.25, 0.5 and 1.0 when your confidence in the provided np and nm values is low, medium and high respectively
+#Number of runs.
+#can run multiple times manually and collect results anyway
+#Sibship size scaling - only issue with hundreds of sibs
+#Update allele frequency:   dont. From the user guide " I suggest not updating allele frequencies except when family sizes (unknown) are suspected to be large (relative to sample size) and highly variable."
+  
+```
+
+
+## Run COLONY
+
+```{r run colony, eval = rerun_COLONY, echo=T, include=F}
+
+#Simply will not run on M1-M3 Macs
+#No idea about Windows
+#This section is set up for running on Linux only
+#colony2s.ifort.out needs to be in "./Executables/COLONY"
+#may actually work on other machines (e.g. non M chip Macs) if correct file is placed and relevant changes made
+
+
+#scenarios with overall pop allele freq dont always work due to bug in COLONY script code. I believe has something to do with allele names
+
+if(rerun_COLONY){
+  
+  run_colony <- function(c_f_i){
+    
+      c_f_o <- str_replace(c_f_i, "input", "output")
+      c_f_o_FS <- str_replace(c_f_o, ".txt", "_FS.txt")
+      c_f_o_HS <- str_replace(c_f_o, ".txt", "_HS.txt")
+      
+      #may need to specify this manually
+      absolute_path <- getwd()#"/home/andrew/Desktop/White-Shark-Breeders"
+      
+    #run COLONY
+    system(paste0(absolute_path, "/Executables/COLONY/colony2s.ifort.out OFN:",
+                  absolute_path, "/Executables/COLONY/", c_f_o," IFN:", 
+                  absolute_path, "/Data/Processed/COLONY/", c_f_i))
+   
+    #copy the Ne results to the results folder
+    system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".Ne ", absolute_path, "/Results/COLONY/", c_f_o))
+    #might need to report numbers of full and half sibs so save these outputs too
+    system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".PairwiseHalfSibDyad ", absolute_path, "/Results/COLONY/", c_f_o_HS))
+    system(paste0("cp ", absolute_path, "/Executables/COLONY/", c_f_o, ".PairwiseFullSibDyad ", absolute_path, "/Results/COLONY/", c_f_o_FS))
+  }
+  
+  colony_files <- list.files("./Data/Processed/COLONY/")
+  
+  # #code below to skip already completed results
+  # already_done <- list.files("./Results/COLONY/")
+  # already_done <- str_replace(already_done, "output", "input")
+  # colony_files <- setdiff(colony_files, already_done)
+  # colony_files <- colony_files[complete.cases(colony_files)]
+  
+  if(!rerun_COLONY_all){
+    colony_files <- colony_files[str_detect(colony_files, "final")]
+  }
+  
+  parallel::mclapply(colony_files,
+    run_colony,
+    mc.cores=5, mc.preschedule=F)
+}
+```
+
+```{r colony_cleanup, eval = rerun_COLONY, echo=F}
+if(rerun_COLONY){
+  # #clean up everything, COLONY creates lot of junk files
+  absolute_path <- getwd()
+  system(paste0("find ", absolute_path, "/Executables/COLONY/ ! -name 'colony2s.ifort.out' -type f -exec rm -f {} +"))
+  gc()
+}
+```
+
+
+These test results were made using data filtered using the script in filter_script.R, they are for testing purposes only. The data used in final_scenario is from filter_script_datasetb.R.  
+
+```{r readcolony, eval = T}
+#need to read COLONY data in from files
+
+colony_results_files <- list.files("./Results/COLONY/")
+colony_results_files <- colony_results_files[str_detect(colony_results_files, "^COLONY_output_scenario_[a-zA-Z0-9]+_[0-9]{4}.txt$")]
+
+col_list <- list()
+
+for (i in seq_len(length(colony_results_files))){
+  c_r_f <- colony_results_files[i]
+  res <- readLines(file.path("./Results/COLONY/", c_r_f))
+  temp <- str_match(c_r_f, "^COLONY_output_(scenario_[a-zA-Z0-9]+)_([0-9]{4}).txt$")
+  
+  Year <- as.numeric(temp[3])
+  Scenario <- temp[2]
+  Nb_SA_est <- as.numeric(na.omit(str_match(res, "^Ne\\s+=\\s+([0-9]+)$")[, 2])[1]) 
+  Nb_SA_upper <- as.numeric(na.omit(str_match(res, "^CI95\\(U\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
+  Nb_SA_lower <- as.numeric(na.omit(str_match(res, "^CI95\\(L\\)\\s+=\\s+([0-9]+)$")[, 2])[1]) 
+  
+  
+  if(file.exists(file.path("./Results/COLONY",  str_replace(c_r_f, ".txt", "_FS.txt")))){
+    #counts of full and half sibs
+    res_FS <- readLines(file.path("./Results/COLONY",  str_replace(c_r_f, ".txt", "_FS.txt")))
+    FS_count_Nb_SA <- length(res_FS)-1
+  }else{
+    FS_count_Nb_SA <- NA
+  }
+  
+  if(file.exists(file.path("./Results/COLONY",  str_replace(c_r_f, ".txt", "_HS.txt")))){
+    res_HS <- readLines(file.path("./Results/COLONY/",  str_replace(c_r_f, ".txt", "_HS.txt")))
+    HS_count_Nb_SA <- length(res_HS)-1
+  }else{
+    HS_count_Nb_SA <- NA
+  }
+  
+  col_list[[i]] <- data.frame(Year, Scenario, Nb_SA_est, Nb_SA_lower, Nb_SA_upper, FS_count_Nb_SA, HS_count_Nb_SA)
+}
+
+All_COLONY_data <- bind_rows(col_list) %>% filter(Year >= 2010, Year <= 2014)
+
+write_csv(All_COLONY_data, "./Results/COLONY/ResultsSummary.csv")
+
+```
+
+Scenario List:
+
+*    scenario_00 - Default settings, short run
+*    scenario_01 - Default settings, population allele frequencies, short run
+*    scenario_02 - Error rates from Wang 2018, short run 
+*    scenario_03 - Error rates from Wang 2018, population allele frequencies, short run 
+*    scenario_04 - Error rates inbetween 1, short run 
+*    scenario_05 - Error rates inbetween 1, population allele frequencies, short run 
+*    scenario_06 - Error rates inbetween 2, short run
+*    scenario_07 - Error rates inbetween 2, population allele frequencies, short run 
+*    scenario_08 - Default settings, long run, repeat - Settings from original paper
+*    scenario_09 - Default settings, long run, repeat 
+*    scenario_10 - Default settings, medium run, repeat 
+*    scenario_11 - Default settings, medium run, repeat 
+
+
+```{r pickcolony, eval = T}
+ggplot(All_COLONY_data, aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position =dodge) 
+
+All_COLONY_data %>% filter(Scenario %in% c("scenario_00", "scenario_01", "scenario_02", "scenario_03","scenario_08", "scenario_final")) %>% ggplot( aes(x = Year, y = Nb_SA_est, colour = Scenario, group=Scenario)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_SA_lower, ymax = Nb_SA_upper), width = width, position =dodge) 
+
+Nb_SA_data <- All_COLONY_data %>% filter(Scenario == "scenario_final") #need to pick one(1) for example scenario_00 is the defaults with 'quick run', scenario_08 is the original settings
+write_csv(Nb_SA_data, "./Results/COLONY/ResultsSummary_final.csv")
+```
+Estimates slightly lower and more consistent for some years if use population allele frequencies, otherwise basically same. The "short" runs have a degree of inconsistency between runs, but main results will use "medium". Overall, there is no real reason to deviate from original settings.
+  
+## Run NeEstimator
+
+```{r run_LDNe, eval = rerun_LDNE, echo = F}
+#this should run on any machine so long as the executables are in "./Executables/NeEstimator"
+if(rerun_LDNE){
+
+  df_list <- list()
+  
+  for (p_crit in p_crit_list){
+    
+    Ne_res <- list()
+  
+    for(year in 2010:2014){
+      gl_temp <- gl.keep.pop(gl_file, as.character(year), verbose = 0)
+    
+      Ne_res <- c(Ne_res, gl.LDNe(
+        gl_temp,
+        neest.path = "./Executables/NeEstimator",
+        critical = p_crit,
+        singleton.rm = FALSE,
+        mating = "random",
+        plot.out = FALSE,
+        verbose = 0
+      ))
+      
+    }
+    
+    
+    
+    for(i in seq_len(length(Ne_res))){
+      
+      Year <- str_extract(names(Ne_res[i]), "[0-9]{4}")
+      S <- sum(gl_file$pop==Year)
+      Nb_LD_est <- as.numeric(Ne_res[[i]]$`Frequency 1`[6])
+      Nb_LD_lower <- as.numeric(Ne_res[[i]]$`Frequency 1`[9])
+      Nb_LD_upper <- as.numeric(Ne_res[[i]]$`Frequency 1`[10])
+      r_star <- as.numeric(Ne_res[[i]]$`Frequency 1`[4])-as.numeric(Ne_res[[i]]$`Frequency 1`[5]) #ideally would get from Burrows File but this should be close enough
+      
+      df_list[[length(df_list)+1]] <- data.frame(Year, S, Nb_LD_est, Nb_LD_lower, Nb_LD_upper, r_star, p_crit)			
+    }
+  }
+  Nb_LD_data_all <- bind_rows(df_list) %>% filter(Year >= 2008, Year <= 2015)
+  write_csv(Nb_LD_data_all, "./Results/NeEstimator/NeResultsSummary.csv")
+}
+
+```
+
+```{r pickpcrit and make some plots, eval = T}
+
+Nb_LD_data_all <-read_csv("./Results/NeEstimator/NeResultsSummary.csv")
+Nb_LD_data_all$p_crit <- factor(Nb_LD_data_all$p_crit)
+
+Nb_LD_data_all_plot = Nb_LD_data_all
+ggplot(Nb_LD_data_all_plot, aes(x = as.factor(Year), y = Nb_LD_est, colour = p_crit, group=p_crit)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = Nb_LD_lower, ymax = Nb_LD_upper), width = width, position =dodge)  + coord_cartesian(ylim = c(0,1000)) + theme_bw()
+```
+
+```{r save the neld info, eval = F}
+Nb_LD_data <- Nb_LD_data_all %>% filter(p_crit == p_crit_chosen) #need to pick one(1) 0.05 is the original settings
+
+write_csv(Nb_LD_data, "./Results/NeEstimator/NeResultsSummary_final.csv")
+```
+
+The rare allele bias issue that p_crit fixes is shown here with the different choices for p_crit. Sticking with 0.05 seems like the best option.
+
+## Cobmine and Save All Estimates Code
+
+```{r data_comb}
+
+#read in from file so always works even if not a full rerun
+Nb_LD_data <- read_csv( "./Results/NeEstimator/NeResultsSummary_final.csv")
+Nb_LSA_data <- read_csv( "./Results/COLONY/ResultsSummary_final.csv")
+
+#join and save
+data <- left_join(Nb_LD_data, Nb_SA_data, by="Year")
+write_csv(data, "./Results/ResultsSummary.csv")
+```
+
+## Run Combination Estimates Code
+
+```{r data2}
+data <- read_csv( "./Results/ResultsSummary.csv")
+
+Ne_to_r <- function(Ne, S){
+  r <- (-69*S^2 + sqrt(10000 * (S^4) * (Ne^2) + 4761 * (S^4) - 248400*(S^3)*Ne) + 1800*S*(Ne^2))/( 1800*(S^2)*(Ne^2))  
+  return(r)
+}
+
+Ne_to_r_star <- function(Ne, S){
+  r <- Ne_to_r(Ne, S)
+  r <- r - 1/S
+  return(r)
+}
+
+
+data$Var_SA_lower <- 0.25 * data$Nb_SA_est^4 * ((1 / data$Nb_SA_lower) - (1 / data$Nb_SA_est))^2
+data$Var_SA_upper <- 0.25 * data$Nb_SA_est^4 * ((1 / data$Nb_SA_upper) - (1 / data$Nb_SA_est))^2
+data$Var_SA_mean <- ( data$Var_SA_lower + data$Var_SA_upper ) / 2
+data$Var_SA_weight <- 1 / data$Var_SA_mean
+
+
+data$r_LD_lower <- Ne_to_r(data$Nb_LD_lower, data$S) 
+data$r_LD_upper <- Ne_to_r(data$Nb_LD_upper, data$S) 
+data$r_LD_est <- Ne_to_r(data$Nb_LD_est, data$S) 
+
+data$rstar_LD_lower <- Ne_to_r_star(data$Nb_LD_lower, data$S) 
+data$rstar_LD_upper <- Ne_to_r_star(data$Nb_LD_upper, data$S) 
+
+
+data$Var_LD_lower <- (1/36) * data$r_star^-4 * (data$r_star - data$rstar_LD_lower)^2
+data$Var_LD_upper <- (1/36) * data$r_star^-4 * (data$r_star - data$rstar_LD_upper)^2
+data$Var_LD_mean <- ( data$Var_LD_lower + data$Var_LD_upper ) / 2
+data$Var_LD_weight <- 1 / data$Var_LD_mean
+
+data$weight_sum <- data$Var_LD_weight + data$Var_SA_weight
+
+data$Var_LD_weightadj <- data$Var_LD_weight / data$weight_sum
+data$Var_SA_weightadj <- data$Var_SA_weight / data$weight_sum
+
+data$Nb_COM_est <- 1 / ((data$Var_SA_weightadj /data$Nb_SA_est) + (data$Var_LD_weightadj / data$Nb_LD_est))
+data$var_COM <- 1 / ((1/data$Var_LD_mean) + (1/data$Var_SA_mean))
+
+#Not CIs
+data$Nb_COM_lower <- data$Nb_COM_est - sqrt(data$var_COM) 
+data$Nb_COM_upper <- data$Nb_COM_est + sqrt(data$var_COM)
+
+data$Nb_COM_SD <- sqrt(data$var_COM)
+data$Na_Nb_ratio <- data$Nb_COM_est / Na_for_ratios
+
+data %>% write_csv("./Results/ResultsComplete.csv")
+
+#nice table
+data %>% dplyr::select(Year, starts_with("Nb_")) -> data_est_only
+
+if(!include_2014){
+  data_est_only <- data_est_only %>% filter(Year != 2014)
+}else{
+  data_est_only <- data_est_only
+}
+
+data_est_only %>% gt() %>% fmt_number(columns = c(5:10), decimals = 1) 
+
+```
+
+# Results
+
+
+## Summary Plots
+
+```{r summary_plot1, echo=FALSE, fig.cap = "Plot of Nb estimates with 95% confidence intervals"}
+
+
+data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") %>% filter(est_type != "COM")-> data2
+
+ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ coord_cartesian(ylim = c(0,1000))
+
+```
+
+The combined estimates are also plotted here. The error bars in this case represent +- SD, not a confidence interval. 
+
+```{r plot_combined_estimates_sd, echo=FALSE, fig.cap = "Plot of Combined Nb estimates +- SD"}
+
+data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") %>% filter(est_type == "COM")-> data2
+
+ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(COM_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+ ylim(c(0,1000))
+
+```
+
+# Stability
+
+I take stability to mean that there are no significant differences between the Nb estimates for any years, this corresponds to the null hypothesis that Nb_2010 = Nb_2011 = Nb_2012 = Nb_2013 = Nb_2014.
+
+## LD (NeEstimator)
+
+The situation is very difficult to evaluate graphically. No hard conclusions can be drawn from examining the individual CIs alone, however there is no obvious trends and the band of values that are in all confidence intervals is relatively wide.
+
+```{r plot_LDNe, echo=FALSE, fig.cap="LD estimates with 95% CIs and values which fall in all CIs marked as a grey rectangle"}
+
+data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") -> data2
+data2 %>% filter(est_type=="LD") %>% summarise(band_lower = max(lower), band_upper = min(upper)) -> bands
+
+ggplot(data2 %>% filter(est_type=="LD"), aes(x = Year, y = est, group = est_type, colour = est_type)) + 
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower, ymax=bands$band_upper), colour='gray80', alpha=0.1) + 
+  #geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower2, ymax=bands$band_upper2), colour='gray100', alpha=0.1) + 
+  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) +
+  scale_color_manual(values = c(LD_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + coord_cartesian(ylim = c(0,1000))
+```
+
+In order to examine this formally, we will need to construct pairwise tests. This needs to be done with $r^{*}$ as LDNe confidence intervals do not have normal CIs. The confidence intervals for $r^{*}$ in LDNe are approximately normal. This method of comparison is statistically consistent with manner used in the construction of the CIs [cite: Jones, Ovenden and Wang (2016)]. 
+
+A slightly more accurate result could be obtained by pulling the results directly from the LDNe code, and making minor adjustments to account for the fact this is only approximately normal, however I do not believe this would make a difference in this case. 
+
+The following table summarises the pairwise comparisons of the Nb estimates in terms of Nb. The first two columns identify which years are being compared, the third and forth columns state the relevant $r^{*}$ values. 
+
+Their difference and the estimate for the standard deviation of the estimate follow. The combined standard deviation is found by taking the square root of the sum the of the two variances. This assumes both estimates are independent. While it is likely these estimates are correlated with each other, we have no way of accurately estimating their covariance so I believe it is best to assume independence. Holm method on the basis that we are making 6 pairwise comparisons and we wish to keep our family-wise error rate below 0.05. 
+
+```{r stab1, echo=TRUE}
+data$rstar_LD_lower <- Ne_to_r_star(data$Nb_LD_lower, data$S) 
+data$rstar_LD_upper <- Ne_to_r_star(data$Nb_LD_upper, data$S) 
+data$rstar_LD_est <- Ne_to_r_star(data$Nb_LD_est, data$S) 
+data$rstar_sd_mean <- (data$rstar_LD_lower - data$rstar_LD_upper) / (2*qnorm(0.9750))
+
+results_frame <- data.frame("Year1" = NA, "Year2"= NA, "r1"= NA, "r2"= NA, "diff"= NA, "combined sd"= NA, "z-score"= NA, "p-value"= NA) %>% na.omit()
+
+for(i in 1:(nrow(data)-1)){
+  for(j in (i+1):nrow(data)){
+    temp <- c(
+      data$Year[i],
+      data$Year[j],
+      data$rstar_LD_est[i],
+      data$rstar_LD_est[j],
+      data$rstar_LD_est[i]-data$rstar_LD_est[j],
+      sqrt(data$rstar_sd_mean[i]^2 + data$rstar_sd_mean[j]^2), 
+      (data$rstar_LD_est[i]-data$rstar_LD_est[j]) / sqrt(data$rstar_sd_mean[i]^2 + data$rstar_sd_mean[j]^2),
+      1-pnorm(abs(data$rstar_LD_est[i]-data$rstar_LD_est[j]) / sqrt(data$rstar_sd_mean[i]^2 + data$rstar_sd_mean[j]^2))
+      
+    )
+    
+    results_frame[nrow(results_frame) + 1,] <- temp
+  
+  }
+}
+
+results_frame$p.value.adj <- p.adjust(results_frame$p.value, "holm")
+results_frame %>% gt() %>% opt_stylize() %>% fmt_number(columns = c(7:9), decimals = 3) %>% fmt_number(columns = c(3:6), n_sigfig =  3)
+
+```
+
+## SA (COLONY)
+
+With the updated results, the intervals for the SA method are no longer mutually disjoint. Analysis is much the same as for LD now.
+
+```{r plot_SA, echo=FALSE}
+
+data2 %>% filter(est_type=="SA") %>% summarise(band_lower = max(lower), band_upper = min(upper)) -> bands
+
+
+ggplot(data2 %>% filter(est_type=="SA"), aes(x = Year, y = est, group = est_type, colour = est_type)) +  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(SA_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + 
+
+geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower, ymax=bands$band_upper), colour='gray80', alpha=0.1) + 
+  #geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands$band_lower2, ymax=bands$band_upper2), colour='gray100', alpha=0.1) + 
+  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) +
+  scale_color_manual(values = c(SA_col)) + theme_bw() + ylab("Nb")  +  guides(colour = "none") + coord_cartesian(ylim = c(0,1000))
+
+
+```
+
+The analysis proceeds in a similar manner as for $r^{*}$. 
+
+```{r stab2, echo=TRUE}
+
+data$Nb_SA_est_inv <- 1 / (2*data$Nb_SA_est)
+
+data$vstar_lower <- ((1/data$Nb_SA_lower - 1/data$Nb_SA_est) / (2*qnorm(0.9750)))^2
+data$vstar_upper <- ((1/data$Nb_SA_est - 1/data$Nb_SA_upper) / (2*qnorm(0.9750)))^2
+
+data$vstar_mean <- (data$vstar_upper+data$vstar_lower)/2
+
+results_frame <- data.frame("Year1" = NA, "Year2"= NA, "2Nb^-1 1"= NA, "2Nb^-1 2"= NA, "diff"= NA, "combined sd"= NA, "z-score"= NA, "p-value"= NA) %>% na.omit()
+
+for(i in 1:(nrow(data)-1)){
+  for(j in (i+1):nrow(data)){
+    temp <- c(
+      data$Year[i],
+      data$Year[j],
+      data$Nb_SA_est_inv[i],
+      data$Nb_SA_est_inv[j],
+      data$Nb_SA_est_inv[i]-data$Nb_SA_est_inv[j],
+      sqrt(data$vstar_mean[i] + data$vstar_mean[j]), 
+      (data$Nb_SA_est_inv[i]-data$Nb_SA_est_inv[j]) / sqrt(data$vstar_mean[i] + data$vstar_mean[j]),
+      1-pnorm(abs(data$Nb_SA_est_inv[i]-data$Nb_SA_est_inv[j]) / sqrt(data$vstar_mean[i] + data$vstar_mean[j]))
+      
+    )
+    
+    results_frame[nrow(results_frame) + 1,] <- temp
+  
+  }
+}
+
+results_frame$p.value.adj <- p.adjust(results_frame$p.value, "holm")
+
+names(results_frame)[3:4] <-c('(2Ne)^-1 1', '(2Ne)^-1 2') 
+results_frame %>% gt() %>% opt_stylize() %>% fmt_number(columns = c(6:9), decimals = 3) %>% fmt_number(columns = c(3:5), n_sigfig =  3)
+
+```
+
+I have a number of reservations about this analysis for the COLONY estimates, but I have included this analysis as I believe it is important.
+
+These issues are:
+
+- I am much less familiar with the CIs for COLONY than for LDNe
+- The accuracy of extracting the variance from the CI bounds was not very high, at the time of the original paper I put this down to the fact it rounds to whole numbers, but I'm not longer sure
+
+# Trends
+
+I have also tested for (linear) trends. With only five points the power to detect a trend is very low, but I think the exercise is worthwhile.
+
+## LD (NeEstimator)
+
+```{r trend1, echo=TRUE}
+
+ols <- lm(Nb_LD_est ~ Year, data=data_est_only)
+
+lmfit <- broom::augment(ols, se_fit = TRUE, interval='confidence')
+```
+
+Using the method of Luikart et al 2020 (i.e. ordinary least squares regression on the Nb_LD estimates) there is no significant trend (p-value = `r round(summary(ols)$coefficients[2,4],3)`). We can also see this graphically as the CI for the trendline (grey shaded area) includes the possibility of a flat line (i.e. slope=0, no trend).
+
+```{r trend1_plot, echo=FALSE}
+ggplot(lmfit, aes(x = Year)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) + geom_point(aes(y=Nb_LD_est)) + geom_line(aes(y=.fitted), col=LD_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb_LD + OLS trend")+ coord_cartesian(ylim = c(0,500))
+
+```
+
+```{r trend4, echo=TRUE}
+
+gls3 <- nlme::gls(Nb_LD_est ~ Year, correlation=corCAR1(0.5, form = ~ 1, fixed=TRUE),  method='REML', verbose=TRUE, data=data)
+
+# Design matrix for our observations ,, 
+xmat <- model.matrix(~ Year, data=data)
+
+# Regression coefficients
+betahat <- coef(gls3)
+
+glsfit <- broom.mixed::augment(gls3)
+
+Sigmahat <- vcov(gls3)
+#https://fw8051statistics4ecologists.netlify.app/gls.html
+# var/cov(beta0 + beta1*X)
+varcovhat<-xmat%*%Sigmahat%*%t(xmat)
+SEline <- sqrt(diag(varcovhat))
+
+glsfit$.upper <- glsfit$.fitted + qnorm(0.975) * SEline
+glsfit$.lower <- glsfit$.fitted - qnorm(0.975) * SEline
+
+```
+
+Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`). This model only accounts for correlation. It doesn't resolve any of the other issues such as asymetric CIs, or incorporate other known information such as the variances of each estimate.
+
+However these tests for a trend are likely suitable here as 4 points are very unlikely to show evidence of a trend regardless of method used. As of 2024, I do not believe anyone has published on either the use of regression models incorporating temporal correlations for use in detecting trends in effective population sizes, or any trend detecting methodolgies using r^2 values directly. As such, using OLS regression on the Nb values is effectively the state of the art.
+
+```{r trend4_plot, echo=FALSE}
+ggplot(glsfit, aes(x = Year)) + geom_point(aes(y=Nb_LD_est)) + geom_line(aes(y=.fitted), col=LD_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb LD with GLS trend (AR1 correlation only)") + coord_cartesian(ylim = c(0,500)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) 
+
+```
+
+## SA (COLONY)
+
+The same analysis can be repeated with the SA estimates.
+
+```{r trend1SA, echo=TRUE}
+
+ols <- lm(Nb_SA_est ~ Year, data=data_est_only)
+
+lmfit <- broom::augment(ols, se_fit = TRUE, interval='confidence')
+```
+
+Using the method of Luikart et al 2020 (i.e. ordinary least squares regression on the Nb_LD estimates) there is no significant trend (p-value = `r round(summary(ols)$coefficients[2,4],3)`).
+
+```{r trend1SA_plot, echo=FALSE}
+ggplot(lmfit, aes(x = Year)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) + geom_point(aes(y=Nb_SA_est)) + geom_line(aes(y=.fitted), col=SA_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb_SA + OLS trend")+ coord_cartesian(ylim = c(0,500))
+
+```
+
+
+```{r trend5, echo=TRUE}
+
+gls3 <- nlme::gls(Nb_SA_est ~ Year, correlation=corCAR1(0.5, form = ~ 1, fixed=TRUE),  method='REML', verbose=TRUE, data=data)
+
+# Design matrix for our observations ,, 
+xmat <- model.matrix(~ Year, data=data)
+
+# Regression coefficients
+betahat <- coef(gls3)
+
+glsfit <- broom.mixed::augment(gls3)
+
+Sigmahat <- vcov(gls3)
+#https://fw8051statistics4ecologists.netlify.app/gls.html
+# var/cov(beta0 + beta1*X)
+varcovhat<-xmat%*%Sigmahat%*%t(xmat)
+SEline <- sqrt(diag(varcovhat))
+
+glsfit$.upper <- glsfit$.fitted + qnorm(0.975) * SEline
+glsfit$.lower <- glsfit$.fitted - qnorm(0.975) * SEline
+
+```
+
+Nor is there a trend when using a GLS regression that incorporates an estimate of autocorrelation (p-value = `r round(summary(gls3)$tTable[2,4],3)`).
+
+```{r trend5_plot, echo=FALSE}
+ggplot(glsfit, aes(x = Year)) + geom_point(aes(y=Nb_SA_est)) + geom_line(aes(y=.fitted), col=SA_col) + theme_bw() + ylab("Nb") +  xlab("Year") + guides(colour = guide_legend(title = "Estimate Type")) + ggtitle("Nb SA with GLS trend (AR1 correlation only)") + coord_cartesian(ylim = c(0,500)) + geom_ribbon(aes(ymin=.lower, ymax=.upper), alpha=0.2) 
+
+```
+
+# Discussion
+
+Following reanalysis of the data from the raw data and following all steps from the origional publication, overall we find that while the exact point estimates vary slightly, the overall conclusion of the origional paper has not changed. 
+  
+
+```{r plot_final, echo=FALSE, fig.cap = "Plot of Nb estimates with 95% confidence intervals"}
+width <- 0.2
+SA_col <- "darkblue"
+LD_col <- "darkred"
+COM_col <- "darkgreen"
+dodge <- position_dodge(width=0.5)
+
+data_est_only %>% pivot_longer(-Year, names_pattern = "^Nb_([A-Z]{2,3})_([a-z]{3,5})$", names_to =c("est_type", "value_type")) %>% pivot_wider(names_from="value_type") %>% filter(est_type != "COM")-> data2
+
+data2 %>% filter(est_type=="SA") %>% summarise(band_lower = max(lower), band_upper = min(upper)) -> bands_SA
+data2 %>% filter(est_type=="LD") %>% summarise(band_lower = max(lower), band_upper = min(upper)) -> bands_LD
+
+
+
+
+ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands_LD$band_lower, ymax=bands_LD$band_upper), fill='indianred2', alpha=0.08, colour=NA) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=bands_SA$band_lower, ymax=bands_SA$band_upper), fill='lightblue', alpha=0.08, colour=NA) +
+  
+  geom_point(position =dodge) + geom_errorbar(aes(ymin = lower, ymax = upper), width = width, position =dodge) + scale_color_manual(values = c(LD_col, SA_col)) + theme_bw() + ylab("Nb") +  guides(colour = guide_legend(title = "Estimate Type"))+coord_cartesian(ylim = c(0,1000))
+
+```
+
+# Requested Outputs
+
+The following outputs have been specifically requested and this section provides extra details on them. 
+
+## A table comparing the before- and after-correction values for LD and SA Nb, SA Nb and any derived Nb estimates.
+
+A new file '/Original Project Files/Results/Original_Results.xlsx' has been created with exact values from the published manuscript to avoid all doubt about the original numbers.
+
+```{r}
+
+comparison_variables <- c("Year",	"S",	"Nb_LD_est",	"Nb_LD_lower",	"Nb_LD_upper",	"Nb_SA_est",	"Nb_SA_lower",	"Nb_SA_upper", "Nb_COM_est",	"Nb_COM_SD", "Na_Nb_ratio", "FS_count_Nb_SA",	"HS_count_Nb_SA")
+
+original_data <- read_xlsx('./Original Project Files/Results/Original_Results.xlsx') %>% select(all_of(comparison_variables))
+new_data <- read_csv("./Results/ResultsComplete.csv") %>% select(all_of(comparison_variables))
+
+original_data$Era <- "Original"
+new_data$Era <- "Reanalysis"
+
+comparison_table <- rbind(original_data, new_data)
+comparison_table %>% write_csv("./Results/Comparison_data.csv")
+comparison_table %>% gt()
+```
+
+## Text, plots and/ or statistics that support the “stable Nb over X years” conclusion in the paper.
+
+See earlier parts of this report. More can be added if required.
+
+## The final LD Ne datafile used to make the corrected estimates of Nb. 
+
+This can be found in /Data/Processed/NeEstimator/genotypes_for_Ne.gen 
+
+List of loci used also saved to /Data/Processed/loci_names.csv
+```{r}
+gl_file@loc.names %>% as.data.frame() %>% write_csv("./Data/Processed/loci_names.csv")
+```
+
+## The overall LD Ne estimate. 
+
+This estimate should be treated with extreme caution when being interepreted.
+
+```{r}
+gl_file_temp <- gl.merge.pop(gl_file, old =  levels(gl_file@pop), new = "one-big-pop")
+
+gl.LDNe(
+        gl_file_temp,
+        neest.path = "./Executables/NeEstimator",
+        critical = p_crit_chosen ,
+        singleton.rm = FALSE,
+        mating = "random",
+        plot.out = FALSE,
+        verbose = 0)
+
+```
+
+
+## The data and scripts required for the groups, reviewers, and readers to easily recreate these results
+
+This markdown file, the associated R scripts (colony_script.R, colony_script2.R, filter_script.R ), the files in  /Data/Raw/ and the executables for COLONY and NeEstimator are all that's required to reproduce this analysis in full.
+
+## The data filtering and analyses required to produce the LD Ne genepop datafile used to make the file estimates of Nb
+
+For clarity this code is reproduced here in a single block
+
+```{r new LDNe genpop, include=TRUE, echo=TRUE, eval=FALSE}
+#first we need the cohorts
+
+# Estimate age directly using values from O'Connor 2011 and FL
+#solve for age
+vbgf3 <- function(L, L_infinity, K_value, t_0) {
+  result <- t_0 - (1 / K_value) * log(1 - (L / L_infinity))
+  return(result)
+}
+
+# Estimating age at length
+# info:
+# Best fitting parmaters for Males
+Linf <- 798.94# cm TL
+k <- 0.047 # 
+L0 <- 140 #cm 
+T0 <- -3.8 #years 
+Males <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# Best fitting paramters for Females 
+Linf<- 719.02# cm TL
+k<- 0.056 # 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Females <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+Linf<- 746.66# cm TL
+k<- 0.053# 
+L0<- 140 #cm 
+T0 <- -3.8 #years 
+Combined <- list(L_infinity_value = Linf, K_value = k, L0 = L0, t_0_value = T0)
+
+# female 
+idx_f<- which(meta_data$Sex == "F")
+idx_m<- which(meta_data$Sex == "M")
+
+male_t = sapply(TL[idx_m], function(x) {vbgf3(x, Males[["L_infinity_value"]], Males[["K_value"]], Males[["t_0_value"]])})
+female_t = sapply(TL[idx_f], function(x) {vbgf3(x, Females[["L_infinity_value"]], Females[["K_value"]], Females[["t_0_value"]])})
+
+# Cohort is equal to year sampled minus age
+male_age = trunc(meta_data$modified_year[idx_m] -  male_t)
+female_age = trunc(meta_data$modified_year[idx_f] -  female_t) # including some samples, ie. MBB1348 depends on how you round the age or the year
+output = tibble::tibble(STRATA = c(male_age, female_age), MBB_CODE = c(meta_data$MBB_Code[idx_m], meta_data$MBB_Code[idx_f]))
+readr::write_tsv(output, "Data/Processed/New_Cohort_Assignment.tsv")
+
+cohort_assignment_file <- "Data/Processed/New_Cohort_Assignment.tsv"
+cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assignment
+  separate(MBB_CODE, into = c("string1", "string2"), sep = " ", remove = FALSE) %>%
+  unite(MBB_CODE_JOIN, string1, string2, sep = "_") 
+  
+
+#filtration happens here
+source("./Scripts/filter_script_datasetb.R")
+
+#load filteed genotypes
+gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
+
+gl_file$ind.names <- str_replace(gl_file$ind.names, "-", "_")
+
+ind_order = tibble::tibble(MBB_CODE_JOIN = gl_file$ind.names, OLD_STRATA = gl_file@pop) %>%
+  left_join(., cohort_assignment, by = "MBB_CODE_JOIN")
+
+gl_file@pop <- as.factor(ind_order$STRATA)
+dartR::gl2genepop(gl_file, outfile = "genotypes_for_Ne.gen", outpath = "Data/Processed/NeEstimator")
+
+```
+
+# R Settings
+
+```{r}
+R.version
+```
+
+```{r}
+sessionInfo()
+```
+
+# References
+
+
+
