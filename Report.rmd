@@ -55,11 +55,11 @@ dodge <- position_dodge(width=0.5)
 
 ```{r parameter settings}
 
-#use the corrected cohorts
+#use the corrected cohorts   
 new_cohort_assignment <- TRUE
 
 #use the new fixed genomes or old or new with filitration that matches old
-# "new" or "old" or "new_w_old_filt"
+# "new" or "old" 
 use_fixed_genotypes <- "new" 
 
 #adjust these if you want the relevant chunks to run
@@ -99,21 +99,21 @@ The authors were made aware of a bug or error in the output-files used in both N
 In Davenport et al., 2021, the effective number of breeders (Nb) was estimated in 4 consecutive cohorts (2010-2013) based on the premise that when a genetic sample contains only individuals from a single age cohort (a group of individuals having the same age-class), then the estimate of effective population size (Ne) from a single-sample estimator in species with overlapping generations corresponds to the effective number of breeders (Nb). For long-lived, iteroparous species such as the white shark, estimates of Nb are generally considered more useful for monitoring as they apply to a single breeding season (rather than needing a sample representative of a generation - an assumption of Ne (see @waplesWhatAnyway2022)), and it represents an accessible parameter for monitoring population trends at ecological timescales most relevant to conservation and management needs. Nb is particularly useful in cases where juvenile or YOY samples can be easily collected (i.e. through SMART shark program NSW). Estimating Nb and monitoring its change over time allows timely detection of population trends (decline, restoration, recovery, expansion), even if using as few as four or five consecutive reproductive cycles (@leberg2005genetic; @wangEstimationEffectivePopulation2005;  @luikartDetectingPopulationDeclines2021).  
   
 # Data 
-
+  
 The original DArT data for this project can be found in the file /Data/Raw  
 The results of the reanalysis can be found in /Results.
-
+  
 The processed Data is found in /Data/processed.
-
+  
 The filtered list of loci from the published analysis can be found in Data/Raw/Report-DSha18-3402/File_Formats/Genepop_NeEstimator_Input/nswdpi_whiteshark_gp.gen.
-
+  
 The loci names were extracted from this document to ensure the data from the publication are used in the reanalysis here.  Readers are referred to the original publication @davenport2021effective for more detailed methods. In summary, a list of loci/SNPs which meet the articles filtering criteria are saved in the '.gen' file. These are used here to re-make the input files for NeEstimator and COLONY from the original raw-data, from which Nb per cohort is re-estimated.The full raw data is also used to re-estimate Nb using a sensitivity analysis of loci/individuals. 
-
+  
 # Confirmation of Issue in Original Manuscript
 ## Setup data
-
+  
 A bug in an R-package used in the original publication is suspected to have introduced inconsistencies into the output files used in the final analysis.
-
+  
 ```{r Quantify Error, echo = T, include =T}
 # read in published strata
 strata_info = read.table("Original Project Files/Strata_Sex_Model_COHORT_REGRESSION.tsv", header = T) # used in the published ms 
@@ -154,7 +154,7 @@ which(head(orig_gl@loc.names) == head(new_gl@loc.names))
 ```
 
 ## Quantify differences in missingness between the published and new dataset 
-
+  
 ```{r missingness1, message = F, echo = T}
 # compare the old and the new files for missingness
 # print out each genlight to get info on missngness, loci, invidual
@@ -167,9 +167,9 @@ orig_gl
 new_gl
 ```
 These results show the number of individuals and the number of loci does not change between the published and the new dataset. However, the number of missing data in the published dataset is 4506, while the re-analysis dataset missingingess is 4503.
- 
+  
 ## Visualise the difference between the published and new dataset 
-
+  
 ```{r allele_pattern_comparison, message = F, caption = "Visualisation of datasets showing published data (top) and new data (bottom). The colours are inverted, where the new file and old file have the 1st allele listed differently (makes no difference to the final result). However, given the SNP index is the same between files (loci are in the same order), and individuals are supposedly in the same order, it appears the published data has been shuffled or inverted"}
 # visualize the data
 ogplot = adegenet::glPlot(orig_gl, posi="topleft")
@@ -193,23 +193,22 @@ new
 
 ## Discussion of error
 Main points:
-
+  
 * Error definitely present as described in analysis by Dean and Paul.
 * Error changes data in a way that would be expected to have some impact estimates of Nb
 * Error needs to be corrected  
   
-
+  
 # Corrected Ne Estimates
 # # New analysis 
 To avoid issues that may have unknowingly arisen throughout the pipeline of the  original study, here we use the raw data, we filter following the steps from the original manuscript (using code in filter_script_dataset a and b) which implements updated r-packages available at the time of this correction and re-make the Nb estimates. These estimates are presented in the corrected manuscript.  
   
-
 # # New cohort assignment
   
 The new cohort assignment file "Data/Processed/New_Cohort_Assignment.tsv" is created by running the the following chunks.
   
 The von Bertanlaffy parameters used are from are from @o2011age. Further work could be done exploring the impact of parameter choices, however initial work suggests the Nb estimates are fairly robust to small numbers of individuals being allocated to different cohorts, however allocation to cohorts appears sensitive to variables in the VBGF. 
-
+  
 ```{r new cohorts, eval = F}
 
 meta_data <- readr::read_csv("Data/Raw/Copy of UPDTAED LAT LONGS UQ genetics PhD181018 Paul Butcher NSW DPI.csv") %>%
@@ -283,7 +282,7 @@ Below the input files for NeEstimator and COLONY are remade to make new estimate
 
 dartR is used write out a genepop file as input for Ne estimator, and a custom script based on the radiator package is used to write out a COLONY file. These COLONY files also contain the COLONY parameter settings.
 
-```{r make new input file, eval = F, message = F}
+```{r make new input file, eval = T, message = F}
 
 # 1. write out new_gp as a genepop , check that the file has been written out correctly 
 # 1a. run this file through NeEstimator
@@ -326,7 +325,9 @@ gl_file@pop <- as.factor(ind_order$STRATA)
 table(gl_file@pop)
 dartR::gl2genepop(gl_file, outfile = "genotypes_for_Ne.gen", outpath = "Data/Processed/NeEstimator")
 ```
-```{r pca fig.cap = "PCA checking data before and after it was transformed into a genpop for Nb analysis, before(top) and after(bottom)", eval = T, message = F}
+
+
+```{r pca, fig.cap = "PCA checking data before and after it was transformed into a genpop for Nb analysis, before(top) and after(bottom)", eval = T, message = F}
 # check the data was written out correctly, both manually and by visualization using pca
 
  # before writing out 
@@ -504,7 +505,7 @@ if(rerun_COLONY){
   }
   
   colony_files <- list.files("./Data/Processed/COLONY/")
-  
+  # 
   # #code below to skip already completed results
   # already_done <- list.files("./Results/COLONY/")
   # already_done <- str_replace(already_done, "output", "input")
@@ -529,7 +530,6 @@ if(rerun_COLONY){
   gc()
 }
 ```
-
 
 These test results were made using data filtered using the script in filter_script.R, they are for testing purposes only. The data used in final_scenario is from filter_script_datasetb.R.  
 
@@ -770,7 +770,7 @@ ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) + geo
 
 ```
 
-# Stability
+# Stability (Andrew Jones)
 
 I take stability to mean that there are no significant differences between the Nb estimates for any years, this corresponds to the null hypothesis that Nb_2010 = Nb_2011 = Nb_2012 = Nb_2013 = Nb_2014.
 

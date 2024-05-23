@@ -312,12 +312,16 @@ length(keep_loci_13) # this does not change from the above, so we dont need to r
 
 ## -- final 
 gl_final<- gl_15
+nLoc(gl_final) # 4253
+nInd(gl_final) #235
 # -----------------------------------------------------------------------
 # SAVE FILTERED GENLIGHT 
 
 # It is sensible to save your genlight object in binary form using
 saveRDS(gl_final, file = file.path('./Data/Processed', str_File_Name_FILTERED))
 
+# -----------------------------------------------------------------------
+# # Visulisation
 # # -- PCA
 # # Visulaise this data with a PCA
 td = gl2gi(gl_final, v = 1)
