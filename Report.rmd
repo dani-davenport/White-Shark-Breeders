@@ -1088,6 +1088,7 @@ See earlier parts of this report. More can be added if required.
 This can be found in /Data/Processed/NeEstimator/genotypes_for_Ne.gen 
 
 List of loci used also saved to /Data/Processed/loci_names.csv
+
 ```{r}
 gl_file@loc.names %>% as.data.frame() %>% write_csv("./Data/Processed/loci_names.csv")
 ```
