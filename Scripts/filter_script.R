@@ -26,10 +26,8 @@ XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
 MISSINGNESS_BAD_SAMPLES = c("MBB_1338", "MBB_1348", "MBB_1336", "MBB_1455", "MBB_1431")
 
 #loci to remove based on PCAdapt
-PCADAPT_LOCI_RDS = "./Data/Filtration/pcadapt_loci.RDS"
+PCADAPT_LOCI_RDS = "./Data/Processed/pcadapt_loci.RDS"
 env_pcadapt_loci_to_remove <- readRDS(PCADAPT_LOCI_RDS)
-
-skip_steps_w_outside_data <- FALSE # this doesnt include the duplicates, these are known from the metadata (samples are labeled "_Dup")
 
 #options for hwe tests
 str_each_or_all_pops <- 'all'
@@ -131,11 +129,8 @@ nLoc(gl_4) # 9551
 #DRP INDIVS
 # Samples identified as possibly divergant with filter gl_dart_0_0_v2
 
-if(skip_steps_w_outside_data){
-  gl_5 <- gl_4
-}else{
-  gl_5 <- gl.drop.ind(gl_4, XVALDAPC_BAD_SAMPLES, recalc = TRUE, mono.rm = TRUE, verbose = 5)
-}
+gl_5 <- gl.drop.ind(gl_4, XVALDAPC_BAD_SAMPLES, recalc = TRUE, mono.rm = TRUE, verbose = 5)
+
 
 nInd(gl_5) # 240 
 nLoc(gl_5) # 9539
@@ -229,15 +224,13 @@ nInd(gl_13) # 235
 # DAVENPORT DATASET_Nb - Step 12a
 # FILTER BY ADAPTATION LOCI USING GENOTYPE MATRIX WITH PC AND Q-VALUE
 
-if(skip_steps_w_outside_data){
-  gl_14 <- gl_13
-}else{
+
   # Remove loci from GENLIGHT
   #env_pcadapt_loci_to_remove <- c(df_pcadapt_loci_to_remove_final[,1])
   
   #DROP LOCI
   gl_14 <- gl.drop.loc(gl_13, env_pcadapt_loci_to_remove, verbose = 5)
-}
+
 nLoc(gl_14) # 4921
 # -------------
 # DAVENPORT DATASET_Nb - Step 12b

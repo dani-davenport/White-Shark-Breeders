@@ -22,6 +22,9 @@ library(hierfstat)
 library(gt)
 library(nlme)
 
+library(dartRverse)
+library(adegenet)
+
 #remotes::install_github("thierrygosselin/radiator")
 library(radiator)
 
@@ -116,8 +119,6 @@ In Davenport et al., 2021, the effective number of breeders (Nb) was estimated i
 # Data 
   
 The original DArT data and related metadata for this project can be found in the folder /Data/Raw.  
-
-Some data which is not strictly 'Raw' is found /Data/Filtration. It is the results of PCA filtration of loci. This can be optionally skipped by setting skip_steps_w_outside_data = "TRUE" in /Scripts/filter_script.R  
 
 The processed data is found in /Data/processed.
 
@@ -330,6 +331,10 @@ if(new_cohort_assignment){
 if(use_fixed_genotypes == "old"){
   gl_file <- orig_gl
 }else if(use_fixed_genotypes == "new"){
+  
+  #does the PCA loci removal step offiltering
+  source("./Scripts/filter_script_PCA_remove_loci.R")
+  
   #does new filtering
   source("./Scripts/filter_script.R")
   
@@ -1094,7 +1099,7 @@ gl.LDNe(
 
 ## The data and scripts required for the groups, reviewers, and readers to easily recreate these results
 
-This markdown file, the associated R scripts (colony_script.R, colony_script2.R, filter_script.R ), the files in  /Data/Raw/ and /Data/Filtration and the executables for COLONY and NeEstimator are all that's required to reproduce this analysis in full.
+This markdown file, the associated R scripts (colony_script.R, colony_script2.R, filter_script.R, filter_script_PCA_remove_loci.R), the files in  /Data/Raw/ and the executables for COLONY and NeEstimator are all that's required to reproduce this analysis in full.
 
 ## The data filtering and analyses required to produce the LD Ne genepop datafile used to make the file estimates of Nb
 
@@ -1152,6 +1157,10 @@ cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assi
   
 
 #filtration happens here
+#does the PCA loci removal step offiltering
+source("./Scripts/filter_script_PCA_remove_loci.R")
+  
+#does new filtering
 source("./Scripts/filter_script.R")
 
 #load filteed genotypes
