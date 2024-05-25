@@ -70,7 +70,7 @@ READ_DEPTH_UPPER <- 25
 # known Duplicate samples
 DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1574_Dup","MBB_1483_Dup") # known
 # identified duplicates RDS name
-DUPLICATE_ALL_RDS = "./Data/Processed/duplicate_samples.RDS"
+DUPLICATE_ALL_RDS = "./Data/Raw/duplicate_samples.RDS"
 #options for hwe tests
 str_each_or_all_pops <- 'all'
 n.pop.threshold_val <- 4

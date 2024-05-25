@@ -80,11 +80,11 @@ rerun_LDNE <- TRUE
 p_crit_list <- c(0, 0.02, 0.05) 
 p_crit_chosen <- 0.05
 
-include_2014 <- FALSE #will still run 2014 estimates, just not included in the analysis
+include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
 
 Na_for_ratios <- 750 #from Bruce et al. (2018)
 
-clear_all_previous <- FALSE # clears everything processed and results before running
+clear_all_previous <- TRUE # clears everything processed and results before running
 
 ```
 
