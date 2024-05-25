@@ -17,13 +17,18 @@ READ_DEPTH_LOWER <- 5
 READ_DEPTH_UPPER <- 25
 
 #individuals to remove
-DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1372","MBB_1417","MBB_1455","MBB_1483_Dup","MBB_1544")
+# known Duplicate samples
+DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1574_Dup","MBB_1483_Dup") # known
+# identified duplicates RDS name
+DUPLICATE_ALL_RDS = "./Data/Processed/duplicate_samples.RDS"
+DUPLICATE_LIST <- readRDS(DUPLICATE_ALL_RDS)
 XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
+MISSINGNESS_BAD_SAMPLES = c("MBB_1338", "MBB_1348", "MBB_1336", "MBB_1455", "MBB_1431")
+#loci to remove based on PCAdapt
+PCADAPT_LOCI_RDS = "./Data/Processed/pcadapt_loci.RDS"
+env_pcadapt_loci_to_remove <- readRDS(PCADAPT_LOCI_RDS)
 
-#loci to remove based on PCAS
-df_pcadapt_loci_to_remove_final <- read.table(file=file.path('./Data/Raw', "3_pops_WAS_as_SAS.pcadapt.results.outlier_loci.qvalues.CACA_2021.Davenport_Dart_Orig_Loci.gl_dart_0_0_v2.csv"), header=FALSE, sep=",")
-
-skip_steps_w_outside_data <- TRUE # this doesnt include the duplicates, I assume these are known from this data alone
+skip_steps_w_outside_data <- FALSE # this doesnt include the duplicates, these are known from the metadata (samples are labeled "_Dup")
 
 #options for hwe tests
 str_each_or_all_pops <- 'all'
@@ -37,7 +42,7 @@ str_working_dir = './Data/Raw'
 str_File_Name_METADATA = 'Davenport_Dart__Report_DSha18_Dups_Relabeled__dartR_METADATA_v1.csv'
 str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled.csv'
 str_File_Name_FILTERED <- 'filtered_genotypes.RData'
-str_File_Name_FILTERED_GL <- 'filtered_genotypes.csv'
+#str_File_Name_FILTERED_GL <- 'filtered_genotypes_dataset.csv'
 gl_filename <- file.path('./Data/Raw/', paste0(str_File_Name_DATA, ".gl.Rdata"))
 
 #############################################
@@ -84,9 +89,18 @@ gl <- readRDS(gl_filename)
 # -----------------------------------------------------------------------
 
 # -------------
+# DAVENPORT DATASET_Nb - Step 1 
+# Filter 
+# DAPC
+# PCAdapt 
+
+
+
+
 # DAVENPORT DATASET_Nb - Step 1
 # REMOVE POPS - only want NSW 
-
+nInd(gl) # 278
+nLoc(gl) # 9841
 gl_2 <- gl.drop.pop(
   gl,
   pop.list = c("SA","SAFRICA","WA"),
@@ -95,13 +109,19 @@ gl_2 <- gl.drop.pop(
   mono.rm = TRUE,
   verbose = 5
 )
+nInd(gl_2) # 245
+nLoc(gl_2) # 9655
 
 # FILTER BY INDIV CALLRATE
 # You can consider call rate across individuals
 gl_3 <- gl.filter.callrate(gl_2, method='ind', threshold = IND_CALLRATE_THRESHOLD, mono.rm = FALSE, recalc = TRUE, plot.out = FALSE)
+nInd(gl_3) # 242
+nLoc(gl_3) #9655
 
 #filter monomorphic
 gl_4 <- gl.filter.monomorphs(gl_3)
+nInd(gl_4) # 242
+nLoc(gl_4) # 9551
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 3
@@ -116,12 +136,15 @@ if(skip_steps_w_outside_data){
   gl_5 <- gl.drop.ind(gl_4, XVALDAPC_BAD_SAMPLES, recalc = TRUE, mono.rm = TRUE, verbose = 5)
 }
 
-
+nInd(gl_5) # 240 
+nLoc(gl_5) # 9539
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 4
 # FILTER BY REPRODUCIBILITY
 gl_6 <- gl.filter.reproducibility(gl_5, threshold = REPRODUCIBILITY_THRESHOLD, plot.out = FALSE)
+nInd(gl_6) # 240 
+nLoc(gl_6) # 6548
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 5
@@ -129,10 +152,9 @@ gl_6 <- gl.filter.reproducibility(gl_5, threshold = REPRODUCIBILITY_THRESHOLD, p
 
 #filter monomorphic
 gl_7 <- gl.filter.monomorphs(gl_6)
-
+nLoc(gl_7) # 6548
 # -------------
 # DAVENPORT DATASET_Nb - Step 6
-# DCB FILTER BY MAC
 
 #Minor allele frequency (MAF) is the frequency at which the second most common allele
 #Minor allele count (MAF) is the count of the second most common allele
@@ -152,19 +174,23 @@ df_MAC_below_threshold <- df_MAC_MAF[df_MAC_MAF$MAC__minor_allele_count < MAC_TH
 env_MAC_loci_to_remove <- c(rownames(df_MAC_below_threshold))
 
 gl_8 <- gl.drop.loc(gl_7, env_MAC_loci_to_remove, verbose = 5)
+nInd(gl_8)
+nLoc(gl_8) # 5975
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 7
 # FILTER BY LOCUS READ DEPTH
 gl_9 <- gl.filter.rdepth(gl_8, lower = 5, upper = 25, verbose = 5, plot.out = FALSE)
-
+nInd(gl_9)
+nLoc(gl_9) # 5354
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 8
 # FILTER BY LOCUS CALLRATE
 
 gl_10 <- gl.filter.callrate(gl_9, method='loc', threshold = LOCI_CALLRATE_THRESHOLD, plot.out = FALSE)
-
+nInd(gl_10)
+nLoc(gl_10) # 5180
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 9
@@ -175,6 +201,7 @@ gl_10 <- gl.filter.callrate(gl_9, method='loc', threshold = LOCI_CALLRATE_THRESH
 #gl.report.secondaries(gl_10)
 
 gl_11 <- gl.filter.secondaries(gl_10)
+nLoc(gl_11) # 4934
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 11
@@ -184,6 +211,7 @@ gl_11 <- gl.filter.secondaries(gl_10)
 #gl.report.callrate(gl_temp, method='ind')
 
 gl_12 <- gl.filter.callrate(gl_11, method='ind', threshold = IND_CALLRATE_THRESHOLD, mono.rm = FALSE, recalc = TRUE, plot.out = FALSE)
+nLoc(gl_12) # 4934, no change
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 10
@@ -194,22 +222,22 @@ gl_12 <- gl.filter.callrate(gl_11, method='ind', threshold = IND_CALLRATE_THRESH
 #gl_temp = gl.drop.ind(gl, c("MBB_1341_Dup","MBB_1371","MBB_1417","MBB_1455","MBB_1483_Dup"), recalc = TRUE, mono.rm = TRUE, verbose = 5)
 # Duplicates (> 96.5% the same) found using radiator and DCB pairwise comparision of genotypes
 gl_13 <- gl.drop.ind(gl_12, DUPLICATE_LIST, recalc = TRUE, mono.rm = TRUE, verbose = 5)
-
+nLoc(gl_13) # 4934
+nInd(gl_13) # 235
 # -------------
 # DAVENPORT DATASET_Nb - Step 12a
 # FILTER BY ADAPTATION LOCI USING GENOTYPE MATRIX WITH PC AND Q-VALUE
-
 
 if(skip_steps_w_outside_data){
   gl_14 <- gl_13
 }else{
   # Remove loci from GENLIGHT
-  env_pcadapt_loci_to_remove <- c(df_pcadapt_loci_to_remove_final[,1])
+  #env_pcadapt_loci_to_remove <- c(df_pcadapt_loci_to_remove_final[,1])
   
   #DROP LOCI
   gl_14 <- gl.drop.loc(gl_13, env_pcadapt_loci_to_remove, verbose = 5)
 }
-
+nLoc(gl_14) # 4921
 # -------------
 # DAVENPORT DATASET_Nb - Step 12b
 # FILTER BY HWE
@@ -269,36 +297,39 @@ gl_15 <- gl.filter.hwe(
   min_sample_size = 2
 )
 
+nLoc(gl_15) # 4253
+
 
 # -------------
 # DAVENPORT DATASET_Nb - Step 13
 # FILTER BY FIS
 # -----------------
-# DCB Method:
-
 df_basic_stats <- gl.basic.stats(gl_15, digits = 4)
+plot(y = df_basic_stats$perloc$Ho, 
+     x = df_basic_stats$perloc$Fis, xlim=c(-0.5, 0.5))
+keep_loci_13 = which(df_basic_stats $perloc$Fis > c(-0.5) & df_basic_stats $perloc$Fis < 0.5)
+length(keep_loci_13) # this does not change from the above, so we dont need to remove anything 
 
-#head(df_basic_stats$perloc)
-
-df_perloc <- data.frame(df_basic_stats$perloc)
-df_fis_not_within_threshold <- df_perloc[abs(df_perloc$Fis) > FIS_THRESHOLD, ]
-
-env_loci_to_remove <- row.names(df_fis_not_within_threshold)
-
-#find and replace certain chars
-env_loci_to_remove <-  gsub("X","",env_loci_to_remove)
-env_loci_to_remove <-  sub("[.]","-",env_loci_to_remove)
-env_loci_to_remove <-  sub("[.]","-",env_loci_to_remove)
-env_loci_to_remove <-  sub("[.]","/",env_loci_to_remove)
-
-#DROP LOCI
-gl_final <- gl.drop.loc(gl_15, env_loci_to_remove, verbose = 5)
-
-gl_final
+## -- final 
+gl_final<- gl_15
+nLoc(gl_final) # 4253
+nInd(gl_final) #235
 # -----------------------------------------------------------------------
 # SAVE FILTERED GENLIGHT 
 
 # It is sensible to save your genlight object in binary form using
 saveRDS(gl_final, file = file.path('./Data/Processed', str_File_Name_FILTERED))
 
+# -----------------------------------------------------------------------
+# # Visulisation
+# # -- PCA
+# # Visulaise this data with a PCA
+td = gl2gi(gl_final, v = 1)
+td.scaled_b<- adegenet::scaleGen(td, NA.method= "zero")
+pca<- dudi.pca(td.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
+factoextra::fviz_pca_ind(pca, axes = c(1,2))
+
+
+# get the diversity stats for Table S6.1
+basic_stats <- hierfstat::basic.stats(gl_final, digits = 4, diploid = T) 
 
