@@ -98,7 +98,7 @@ include_2014 <- TRUE #will still run 2014 estimates, just not included in the an
 
 Na_for_ratios <- 750 #from Bruce et al. (2018)
 
-clear_all_previous <- TRUE # clears everything processed and results before running
+clear_all_previous <- FALSE # clears everything processed and results before running
 
 ```
 
