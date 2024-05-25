@@ -1,6 +1,7 @@
 # adapted from CACA_DAVENPORT_DART_Filtering___Initial_Analyses_gl_filt_2_2_v5.R
 # by Andrew Jones
 
+set.seed(1) #reduce randomness
 ######################################################
 # parameters used in the filtering
 

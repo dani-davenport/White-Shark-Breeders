@@ -33,7 +33,7 @@ MAC_calcs <- function(gl){
 }
 
 # # -----------------------------------------------------------------------
-
+set.seed(1) #reduce randomness
 # STEP 1. 
 # Import data 
 str_working_dir = './Data/Raw'
