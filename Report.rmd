@@ -305,6 +305,9 @@ if(new_cohort_assignment){
 if(use_fixed_genotypes == "old"){
   gl_file <- orig_gl
 }else if(use_fixed_genotypes == "new"){
+  #does new filtering
+  source("./Scripts/filter_script.R")
+  
   str_File_Name_FILTERED <-'./Data/Processed/filtered_genotypes.RData'
   gl_file <- readRDS(str_File_Name_FILTERED)
 }else{
@@ -1134,7 +1137,7 @@ cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assi
   
 
 #filtration happens here
-source("./Scripts/filter_script_final.R")
+source("./Scripts/filter_script.R")
 
 #load filteed genotypes
 gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
