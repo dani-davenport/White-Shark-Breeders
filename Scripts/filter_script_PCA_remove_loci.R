@@ -70,7 +70,7 @@ READ_DEPTH_UPPER <- 25
 # known Duplicate samples
 DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1574_Dup","MBB_1483_Dup") # known
 # identified duplicates RDS name
-DUPLICATE_ALL_RDS = "./Data/Raw/duplicate_samples.RDS"
+DUPLICATE_ALL_RDS = "./Data/Processed/duplicate_samples.RDS"
 #options for hwe tests
 str_each_or_all_pops <- 'all'
 n.pop.threshold_val <- 4
@@ -165,6 +165,8 @@ df_unique <- indx[!duplicated(indx$pair), ] # "MBB_1544"     "MBB_1372"     "MBB
 DUPLICATE_LIST_ALL = c(as.character(df_unique$row), DUPLICATE_LIST) # just keep one of row or column from df_unique
 saveRDS(DUPLICATE_LIST_ALL, file = DUPLICATE_ALL_RDS)
 length(DUPLICATE_LIST_ALL) # 7  
+
+
 no_duplicates_keep = indNames(gl_5)[-which(adegenet::indNames(gl_5) %in% DUPLICATE_LIST_ALL)]
 gl_6 = dartR::gl.keep.ind(gl_5, no_duplicates_keep,recalc = T, mono.rm = T)
 nLoc(gl_6) # 7008
@@ -198,13 +200,14 @@ pramx = adegenet::xvalDapc(tab(gl_dapc, NA.method= "mean") , pop(gl_dapc),
                            center = T, scale = F) 
 saveRDS(pramx, file = "./Data/Processed/dapcobj.RDS")
 # plot
-png(file="./Data/Processed/DAPC.plot.png")
+png(file="./Figures/DAPC.plot.png")
 scatter.dapc(pramx$DAPC, cex = 2, legend = TRUE,
              clabel = FALSE, posi.leg = "bottomleft", scree.pca = FALSE, cleg = 0.75, xax = 1, yax = 2, 
              inset.solid = 1)
 dev.off()
 # inds 1446 and 1412 removed, close/group with SA
 DAPC_OUTTIES = c("MBB_1412", "MBB_1446") 
+
 # # -- 
 # # # PCAdapt
 # for this lets not included very related samples. 
@@ -214,13 +217,16 @@ pb8 = hierfstat::beta.dosage(m8) # you can use any kinship or distance metric, m
 diag(pb8)<- 0
 indx8 = data.frame(row = rownames(pb8)[which(pb8 >= 0.1, arr.ind = TRUE)[, 1]], 
                    col = colnames(pb8)[which(pb8 >= 0.1, arr.ind = TRUE)[, 2]]) # this cut off capture all known dups, above this not all known dups were included
+
 # this is clumsy but gets the job done, keep one from each pair, no duplicates
 indx8$pair <- apply(indx8[, c("row", "col")], 1, function(x) paste(sort(x), collapse = "_"))
 df_unique <- indx8[!duplicated(indx8$pair), ]
-gl_pcadapt_in = gl_8[-which(adegenet::indNames(gl_8) %in% df_unique$row),]
+
+gl_pcadapt_in = gl_7[-which(adegenet::indNames(gl_7) %in% df_unique$row),]
 dos = tab(gl_pcadapt_in, NA.method= "asis")
 dos[is.na(dos)] <- 9
-LEA::write.lfmm(dos,LEA_FILENAME)
+
+LEA::write.lfmm(dos, LEA_FILENAME)
 pcadaptin <- pcadapt::read.pcadapt(LEA_FILENAME, type = "lfmm")
 pcadaptout <- pcadapt::pcadapt(input = pcadaptin, K = 20, min.maf = 0.05)
 scree = gridExtra::grid.arrange(plot(pcadaptout, option = "screeplot", K = 20) +  ggplot2::theme_classic())
@@ -246,4 +252,4 @@ saveRDS(pcadapt_remove_loci, file = PCADAPT_LOCI_RDS)
 # # -- 
 # STEP 2 Get Final dataset for Nb analysis 
 # Filter again, this time we only keep the target samples (NSW samples). 
-# Use code in filter_script_datasetb.R
+# Use code in filter_script_main.R

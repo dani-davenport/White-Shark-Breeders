@@ -25,6 +25,13 @@ library(nlme)
 library(dartRverse)
 library(adegenet)
 
+
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("LEA")
+library(LEA)
+
 #remotes::install_github("thierrygosselin/radiator")
 library(radiator)
 
@@ -65,7 +72,7 @@ use_fixed_genotypes <- "new"
 rerun_COLONY <- TRUE
 
 #COLONY params for simulations that will actually be used
-COLONY_run_length <- 2
+COLONY_run_length <- 1
 COLONY_allele_freq <- NULL # vs "overall" for population averages. 
 COLONY_dropout <- 0 
 COLONY_error_rate <- 0.02
@@ -77,7 +84,7 @@ rerun_COLONY_all <- FALSE #this is very slow and only really needed for the sens
 rerun_LDNE <- TRUE
 
 #p_crit choices
-p_crit_list <- c(0, 0.02, 0.05) 
+p_crit_list <- c(0.05) # 0, 0.02, 0.05) 
 p_crit_chosen <- 0.05
 
 include_2014 <- TRUE #will still run 2014 estimates, just not included in the analysis
@@ -226,7 +233,7 @@ Main points:
 
 ## New analysis 
 
-To avoid issues that may have unknowingly arisen throughout the pipeline of the  original study, here we use the raw data, we filter following the steps from the original manuscript (using code in filter_script.R) which implements the filtering using updated versions of r-packages available at the time of this correction and re-make the Nb estimates. These estimates are presented in the corrected manuscript.  
+To avoid issues that may have unknowingly arisen throughout the pipeline of the  original study, here we use the raw data, we filter following the steps from the original manuscript (using code in filter_script_main.R) which implements the filtering using updated versions of r-packages available at the time of this correction and re-make the Nb estimates. These estimates are presented in the corrected manuscript.  
   
 ## New cohort assignment
   
@@ -336,7 +343,7 @@ if(use_fixed_genotypes == "old"){
   source("./Scripts/filter_script_PCA_remove_loci.R")
   
   #does new filtering
-  source("./Scripts/filter_script.R")
+  source("./Scripts/filter_script_main.R")
   
   str_File_Name_FILTERED <-'./Data/Processed/filtered_genotypes.RData'
   gl_file <- readRDS(str_File_Name_FILTERED)
@@ -1099,7 +1106,7 @@ gl.LDNe(
 
 ## The data and scripts required for the groups, reviewers, and readers to easily recreate these results
 
-This markdown file, the associated R scripts (colony_script.R, colony_script2.R, filter_script.R, filter_script_PCA_remove_loci.R), the files in  /Data/Raw/ and the executables for COLONY and NeEstimator are all that's required to reproduce this analysis in full.
+This markdown file, the associated R scripts (colony_script.R, colony_script2.R, filter_script_main.R, filter_script_PCA_remove_loci.R), the files in  /Data/Raw/ and the executables for COLONY and NeEstimator are all that's required to reproduce this analysis in full.
 
 ## The data filtering and analyses required to produce the LD Ne genepop datafile used to make the file estimates of Nb
 
@@ -1161,7 +1168,7 @@ cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assi
 source("./Scripts/filter_script_PCA_remove_loci.R")
   
 #does new filtering
-source("./Scripts/filter_script.R")
+source("./Scripts/filter_script_main.R")
 
 #load filteed genotypes
 gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
