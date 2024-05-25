@@ -20,7 +20,7 @@ READ_DEPTH_UPPER <- 25
 # known Duplicate samples
 DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1574_Dup","MBB_1483_Dup") # known
 # identified duplicates RDS name
-DUPLICATE_ALL_RDS = "./Data/Filtration/duplicate_samples.RDS"
+DUPLICATE_ALL_RDS = "./Data/Raw/duplicate_samples.RDS"
 DUPLICATE_LIST <- readRDS(DUPLICATE_ALL_RDS)
 XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
 MISSINGNESS_BAD_SAMPLES = c("MBB_1338", "MBB_1348", "MBB_1336", "MBB_1455", "MBB_1431")
@@ -306,8 +306,8 @@ nLoc(gl_15) # 4253
 # FILTER BY FIS
 # -----------------
 df_basic_stats <- gl.basic.stats(gl_15, digits = 4)
-plot(y = df_basic_stats$perloc$Ho, 
-     x = df_basic_stats$perloc$Fis, xlim=c(-0.5, 0.5))
+# plot(y = df_basic_stats$perloc$Ho, 
+#      x = df_basic_stats$perloc$Fis, xlim=c(-0.5, 0.5))
 keep_loci_13 = which(df_basic_stats $perloc$Fis > c(-0.5) & df_basic_stats $perloc$Fis < 0.5)
 length(keep_loci_13) # this does not change from the above, so we dont need to remove anything 
 
@@ -322,15 +322,15 @@ nInd(gl_final) #235
 saveRDS(gl_final, file = file.path('./Data/Processed', str_File_Name_FILTERED))
 
 # -----------------------------------------------------------------------
-# # Visulisation
-# # -- PCA
-# # Visulaise this data with a PCA
-td = gl2gi(gl_final, v = 1)
-td.scaled_b<- adegenet::scaleGen(td, NA.method= "zero")
-pca<- dudi.pca(td.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
-factoextra::fviz_pca_ind(pca, axes = c(1,2))
-
-
-# get the diversity stats for Table S6.1
-basic_stats <- hierfstat::basic.stats(gl_final, digits = 4, diploid = T) 
+# # # Visulisation
+# # # -- PCA
+# # # Visulaise this data with a PCA
+# td = gl2gi(gl_final, v = 1)
+# td.scaled_b<- adegenet::scaleGen(td, NA.method= "zero")
+# pca<- dudi.pca(td.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
+# factoextra::fviz_pca_ind(pca, axes = c(1,2))
+# 
+# 
+# # get the diversity stats for Table S6.1
+# basic_stats <- hierfstat::basic.stats(gl_final, digits = 4, diploid = T) 
 
