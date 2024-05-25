@@ -13,7 +13,7 @@ Data/Processed/COLONY/COLONY_input_scenario_final_2011.txt          ! Output fil
 0 0 0                                ! 0, 1, 2, 3 = No, weak, medium, strong sibship size prior; mean paternal & maternal sibship size
 0                                    ! 0/1=Unknown/Known population allele frequency
 1                                    ! Number of runs
-2                                    ! Length of run
+1                                    ! Length of run
 0                                    ! 0/1=Monitor method by Iterate
 10000                                ! Monitor interval in Iterate
 0                                    ! non-Windows version
