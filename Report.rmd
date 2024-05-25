@@ -79,7 +79,7 @@ use_fixed_genotypes <- "new"
 rerun_COLONY <- TRUE
 
 #COLONY params for simulations that will actually be used
-COLONY_run_length <- 1
+COLONY_run_length <- 2
 COLONY_allele_freq <- NULL # vs "overall" for population averages. 
 COLONY_dropout <- 0 
 COLONY_error_rate <- 0.02
@@ -1095,6 +1095,8 @@ gl_file@loc.names %>% as.data.frame() %>% write_csv("./Data/Processed/loci_names
 
 ## The overall LD Ne estimate. 
 
+### All Cohorts
+
 This estimate should be treated with extreme caution when being interepreted.
 
 ```{r}
@@ -1102,6 +1104,36 @@ gl_file_temp <- gl.merge.pop(gl_file, old =  levels(gl_file@pop), new = "one-big
 
 gl.LDNe(
         gl_file_temp,
+        neest.path = "./Executables/NeEstimator",
+        critical = p_crit_chosen ,
+        singleton.rm = FALSE,
+        mating = "random",
+        plot.out = FALSE,
+        verbose = 0)
+
+```
+### All Study Cohorts
+
+This estimate should be treated with extreme caution when being interepreted.
+
+```{r}
+
+if(include_2014){
+  cohorts <- as.character(2010:2014)
+}else{
+  cohorts <- as.character(2010:2013)
+}
+
+gl_file_temp2 <- gl.merge.pop(gl_file, old =  cohorts, new = "study-cohort-pop")
+
+to_remove <- levels(gl_file_temp2@pop) %>% str_extract('[0-9].*') 
+to_remove <- to_remove[!is.na(to_remove)]
+
+gl_file_temp2b <- gl.drop.pop(gl_file_temp2, to_remove)
+  
+  
+gl.LDNe(
+        gl_file_temp2b,
         neest.path = "./Executables/NeEstimator",
         critical = p_crit_chosen ,
         singleton.rm = FALSE,
