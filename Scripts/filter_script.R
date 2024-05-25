@@ -20,12 +20,13 @@ READ_DEPTH_UPPER <- 25
 # known Duplicate samples
 DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1574_Dup","MBB_1483_Dup") # known
 # identified duplicates RDS name
-DUPLICATE_ALL_RDS = "./Data/Processed/duplicate_samples.RDS"
+DUPLICATE_ALL_RDS = "./Data/Filtration/duplicate_samples.RDS"
 DUPLICATE_LIST <- readRDS(DUPLICATE_ALL_RDS)
 XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
 MISSINGNESS_BAD_SAMPLES = c("MBB_1338", "MBB_1348", "MBB_1336", "MBB_1455", "MBB_1431")
+
 #loci to remove based on PCAdapt
-PCADAPT_LOCI_RDS = "./Data/Processed/pcadapt_loci.RDS"
+PCADAPT_LOCI_RDS = "./Data/Filtration/pcadapt_loci.RDS"
 env_pcadapt_loci_to_remove <- readRDS(PCADAPT_LOCI_RDS)
 
 skip_steps_w_outside_data <- FALSE # this doesnt include the duplicates, these are known from the metadata (samples are labeled "_Dup")
