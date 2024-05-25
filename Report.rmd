@@ -22,6 +22,8 @@ library(hierfstat)
 library(gt)
 library(nlme)
 
+library(tools)
+
 library(dartRverse)
 library(adegenet)
 
@@ -32,8 +34,13 @@ library(adegenet)
 # BiocManager::install("LEA")
 library(LEA)
 
+# BiocManager::install("qvalue")
+library(qvalue)
+
 #remotes::install_github("thierrygosselin/radiator")
 library(radiator)
+
+
 
 library(ggplot2)
 library(here)
@@ -312,7 +319,7 @@ Below the input files for NeEstimator and COLONY are remade to make new estimate
 
 dartR is used write out a genepop file as input for Ne estimator, and a custom script based on the radiator package is used to write out a COLONY file. These COLONY files also contain the COLONY parameter settings.
 
-```{r make new input file, eval = T, message = F}
+```{r make new input file, eval = T, message = F, include=F}
 
 # 1. write out new_gp as a genepop , check that the file has been written out correctly 
 # 1a. run this file through NeEstimator
@@ -1110,7 +1117,7 @@ This markdown file, the associated R scripts (colony_script.R, colony_script2.R,
 
 ## The data filtering and analyses required to produce the LD Ne genepop datafile used to make the file estimates of Nb
 
-For clarity this code is reproduced here in a single block
+For clarity this code is reproduced here in a single block (note: will not evaluate code when knitting this file.)
 
 ```{r new LDNe genpop, include=TRUE, echo=TRUE, eval=FALSE}
 #first we need the cohorts

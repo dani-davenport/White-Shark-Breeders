@@ -38,8 +38,9 @@ MAC_calcs <- function(gl){
 # Import data 
 str_working_dir = './Data/Raw'
 str_File_Name_METADATA = 'Davenport_Dart__Report_DSha18_Dups_Relabeled__dartR_METADATA_v1.csv'
-str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled'
-gl_filename <- file.path('./Data/Processed/', paste0(str_File_Name_DATA, ".gl.Rdata"))
+str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled.csv'
+
+gl_filename <- file.path('./Data/Processed/', paste0(file_path_sans_ext(str_File_Name_DATA), ".gl.Rdata"))
 # # An example of the function used to input data to GENLIGHT object is as follows:
 gl <- dartR::gl.read.dart(filename = file.path(str_working_dir, str_File_Name_DATA), ind.metafile = file.path(str_working_dir, str_File_Name_METADATA))
 # # Check data file
@@ -117,10 +118,10 @@ nLoc(gl_4) # 7008
 indmissing_tbl = tibble::tibble(factor = gl_4@pop, sample_name = indNames(gl_4), 
                                 value = rowMeans(is.na(tab(gl_4, NA.method = "asis"))))
 indmissing_tbl$outlier <- ave(indmissing_tbl$value, indmissing_tbl$factor, FUN = is_outlier) 
-ggplot2::ggplot(indmissing_tbl, aes(x = factor, y = value)) +
-  geom_boxplot() +
-  ggrepel::geom_text_repel(data = indmissing_tbl[indmissing_tbl$outlier == TRUE,], aes(label = sample_name), size = 3, color = "red") +
-  theme_minimal()
+# ggplot2::ggplot(indmissing_tbl, aes(x = factor, y = value)) +
+#   geom_boxplot() +
+#   ggrepel::geom_text_repel(data = indmissing_tbl[indmissing_tbl$outlier == TRUE,], aes(label = sample_name), size = 3, color = "red") +
+#   theme_minimal()
 inds_to_drop_missingness = which(rowMeans(is.na(tab(gl_4, NA.method = "asis"))) >= IND_MISSING_THRESHOLD)
 inds_to_drop_missingness
 inds_to_keep_missingness = indNames(gl_4)[-which(indNames(gl_4) %in% names(inds_to_drop_missingness))]
@@ -138,24 +139,24 @@ ind_het = gl.report.heterozygosity(gl_5,method = 'ind')
 df_het = tibble::tibble(value = ind_het$Ho, sample_name = ind_het$ind.name, factor = gl_5@pop[which(indNames(gl_5) %in% ind_het$ind.name)])
 # Function to add a column for outliers
 df_het$outlier <- ave(df_het$value, df_het$factor, FUN = is_outlier)
-p <- ggplot2::ggplot(df_het, aes(x = factor, y = value)) +
-  geom_boxplot() +
-  ggrepel::geom_text_repel(data = df_het[df_het$outlier == TRUE,], aes(label = sample_name), size = 3, color = "red") +
-  theme_minimal()
-p
+# p <- ggplot2::ggplot(df_het, aes(x = factor, y = value)) +
+#   geom_boxplot() +
+#   ggrepel::geom_text_repel(data = df_het[df_het$outlier == TRUE,], aes(label = sample_name), size = 3, color = "red") +
+#   theme_minimal()
+# p
 # here we can see some samples have really low heterozygosity relative to other samples
 # At this point you need to distinguish between an artifact of poor polymorphism discovery or a biological reason (highly inbred individual, etc.).
 missing_tbl = tibble::tibble(missing = rowMeans(is.na(tab(gl_5, NA.method = "asis")))[which(df_het$value <= 0.18)],
                              df_het[which(df_het$value <= 0.18),])
-missing_tbl
+#missing_tbl
 # so ill leave all of these 
 # 6b Remove known duplicates and other identified (possible) duplicates. 
 gl_dist_ind <- as.matrix(stats::dist(tab(gl_5, NA.method= "zero"), method = "euclidean"))
 df <- reshape2::melt(gl_dist_ind,  id.vars = "Row")
 names(df) <- c("row", "col", "Value")
-ggplot(df, aes(x=factor(row), y=Value)) +
-  geom_boxplot() +
-  theme_minimal()
+# ggplot(df, aes(x=factor(row), y=Value)) +
+#   geom_boxplot() +
+#   theme_minimal()
 indx = df[df$Value < 30 & df$Value >0,]
 indx = indx[!grepl("_Dup", indx$row), ]
 indx = indx[!grepl("_Dup", indx$col), ]
@@ -229,10 +230,13 @@ dos[is.na(dos)] <- 9
 LEA::write.lfmm(dos, LEA_FILENAME)
 pcadaptin <- pcadapt::read.pcadapt(LEA_FILENAME, type = "lfmm")
 pcadaptout <- pcadapt::pcadapt(input = pcadaptin, K = 20, min.maf = 0.05)
-scree = gridExtra::grid.arrange(plot(pcadaptout, option = "screeplot", K = 20) +  ggplot2::theme_classic())
-as_tibble(pcadaptout$scores)[,1:2] %>% 
-  ggplot(aes(x = .[[1]], y = .[[2]], color = gl_pcadapt_in@pop))  +  
-  ggplot2::geom_point(size = 4) + ggplot2::theme_classic() 
+# 
+# scree = gridExtra::grid.arrange(plot(pcadaptout, option = "screeplot", K = 20) +  ggplot2::theme_classic())
+# 
+# as_tibble(pcadaptout$scores)[,1:2] %>% 
+#   ggplot(aes(x = .[[1]], y = .[[2]], color = gl_pcadapt_in@pop))  +  
+#   ggplot2::geom_point(size = 4) + ggplot2::theme_classic() 
+
 # looks like only pc1 seperates SA and others, maybe two
 k = 1 #  an integer specifying the number of principal components to retain
 pcadaptout<- pcadapt::pcadapt(input = pcadaptin, K = k, min.maf = 0.05)

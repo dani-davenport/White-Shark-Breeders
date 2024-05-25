@@ -20,7 +20,7 @@ READ_DEPTH_UPPER <- 25
 # known Duplicate samples
 DUPLICATE_LIST <- c("MBB_1341_Dup","MBB_1574_Dup","MBB_1483_Dup") # known
 # identified duplicates RDS name
-DUPLICATE_ALL_RDS = "./Data/Raw/duplicate_samples.RDS"
+DUPLICATE_ALL_RDS = "./Data/Processed/duplicate_samples.RDS"
 DUPLICATE_LIST <- readRDS(DUPLICATE_ALL_RDS)
 XVALDAPC_BAD_SAMPLES <- c("MBB_1412","MBB_1446")
 MISSINGNESS_BAD_SAMPLES = c("MBB_1338", "MBB_1348", "MBB_1336", "MBB_1455", "MBB_1431")
@@ -41,8 +41,8 @@ str_working_dir = './Data/Raw'
 str_File_Name_METADATA = 'Davenport_Dart__Report_DSha18_Dups_Relabeled__dartR_METADATA_v1.csv'
 str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled.csv'
 str_File_Name_FILTERED <- 'filtered_genotypes.RData'
-#str_File_Name_FILTERED_GL <- 'filtered_genotypes_dataset.csv'
-gl_filename <- file.path('./Data/Raw/', paste0(str_File_Name_DATA, ".gl.Rdata"))
+
+gl_filename <- file.path('./Data/Processed/', paste0(file_path_sans_ext(str_File_Name_DATA), ".gl.Rdata"))
 
 #############################################
 MAC_calcs <- function(gl){
