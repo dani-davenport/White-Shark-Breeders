@@ -41,7 +41,7 @@ FIS_THRESHOLD <- 0.5
 str_working_dir = './Data/Raw'
 str_File_Name_METADATA = 'Davenport_Dart__Report_DSha18_Dups_Relabeled__dartR_METADATA_v1.csv'
 str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled.csv'
-str_File_Name_FILTERED <- 'filtered_genotypes_datasetb.RData'
+str_File_Name_FILTERED <- 'filtered_genotypes.RData'
 #str_File_Name_FILTERED_GL <- 'filtered_genotypes_dataset.csv'
 gl_filename <- file.path('./Data/Raw/', paste0(str_File_Name_DATA, ".gl.Rdata"))
 

@@ -38,10 +38,8 @@ library(purrr)
 library(readr)
 library(stringr)
 
-#install.packages("remotes")
-  
 source("./Scripts/colony_script.R") #radiator had bug so i had to fix it. write_colony2  is radiator::write_colony but it passes arguements through correctly
-source("./Scripts/colony_script2.R") #CHECKME
+source("./Scripts/colony_script2.R")
   
 #some graph settings for later
 width <- 0.2
@@ -288,8 +286,6 @@ dartR is used write out a genepop file as input for Ne estimator, and a custom s
 
 # first its important to make sure that the cohort are correctly assigned 
 
-#some sharks no cohort - why ?no meta data?
-
 if(new_cohort_assignment){
   cohort_assignment_file <- "Data/Processed/New_Cohort_Assignment.tsv"
   
@@ -309,7 +305,7 @@ if(new_cohort_assignment){
 if(use_fixed_genotypes == "old"){
   gl_file <- orig_gl
 }else if(use_fixed_genotypes == "new"){
-  str_File_Name_FILTERED <-'./Data/Processed/filtered_genotypes_datasetb.RData'
+  str_File_Name_FILTERED <-'./Data/Processed/filtered_genotypes.RData'
   gl_file <- readRDS(str_File_Name_FILTERED)
 }else{
   message("need to choose one of old, new, or new_w_old_filt for use_fixed_genotypes")
@@ -1138,7 +1134,7 @@ cohort_assignment = readr::read_tsv(cohort_assignment_file) %>% #New cohort assi
   
 
 #filtration happens here
-source("./Scripts/filter_script_datasetb.R")
+source("./Scripts/filter_script_final.R")
 
 #load filteed genotypes
 gl_file <- readRDS('./Data/Processed/filtered_genotypes.RData')
