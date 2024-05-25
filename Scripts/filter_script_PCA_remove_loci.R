@@ -38,8 +38,8 @@ MAC_calcs <- function(gl){
 # Import data 
 str_working_dir = './Data/Raw'
 str_File_Name_METADATA = 'Davenport_Dart__Report_DSha18_Dups_Relabeled__dartR_METADATA_v1.csv'
-str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled.csv'
-gl_filename <- file.path('./Data/Raw/', paste0(str_File_Name_DATA, ".gl.Rdata"))
+str_File_Name_DATA <- 'Report_DSha18-3402_SNP_2_ReLabeled'
+gl_filename <- file.path('./Data/Processed/', paste0(str_File_Name_DATA, ".gl.Rdata"))
 # # An example of the function used to input data to GENLIGHT object is as follows:
 gl <- dartR::gl.read.dart(filename = file.path(str_working_dir, str_File_Name_DATA), ind.metafile = file.path(str_working_dir, str_File_Name_METADATA))
 # # Check data file
