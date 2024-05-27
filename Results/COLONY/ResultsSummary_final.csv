@@ -1,6 +1,6 @@
 Year,Scenario,Nb_SA_est,Nb_SA_lower,Nb_SA_upper,FS_count_Nb_SA,HS_count_Nb_SA
-2010,scenario_final,96,58,188,7,3
-2011,scenario_final,228,137,528,4,5
-2012,scenario_final,204,139,361,8,16
-2013,scenario_final,159,114,232,16,21
+2010,scenario_final,96,56,198,7,3
+2011,scenario_final,247,148,567,4,5
+2012,scenario_final,196,132,332,8,15
+2013,scenario_final,174,123,252,16,22
 2014,scenario_final,132,75,449,3,1
