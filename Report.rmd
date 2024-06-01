@@ -4,7 +4,7 @@ author: "Andrew Jones & Danielle Davenport"
 bibliography: bib.bib
 output: html_document 
 ---
-```{r setup, message=F, echo = F, warnings = F}
+```{r setup, message=F, echo = F, warnings = F, include = F}
 
 knitr::opts_chunk$set(dpi = 400, 
                       echo=TRUE, # change true or false here whether you want to show the R code
@@ -76,7 +76,7 @@ new_cohort_assignment <- TRUE
 use_fixed_genotypes <- "new" 
 
 #adjust these if you want the relevant chunks to run
-rerun_COLONY <- TRUE
+rerun_COLONY <- FALSE
 
 #COLONY params for simulations that will actually be used
 COLONY_run_length <- 1
@@ -88,7 +88,7 @@ COLONY_random_seed <- 1
 #see scenarios section for parameter choices
 rerun_COLONY_all <- FALSE #this is very slow and only really needed for the sensitivity testing stuff, wouldnt normally rerun this
 
-rerun_LDNE <- TRUE
+rerun_LDNE <- FALSE
 
 #p_crit choices
 p_crit_list <- c(0.05) # 0, 0.02, 0.05) 
@@ -98,7 +98,7 @@ include_2014 <- FALSE #will still run 2014 estimates, just not included in the a
 
 Na_for_ratios <- 750 #from Bruce et al. (2018)
 
-clear_all_previous <- TRUE # clears everything processed and results before running
+clear_all_previous <- FALSE # clears everything processed and results before running
 
 ```
 
@@ -211,6 +211,7 @@ newplot = adegenet::glPlot(new_gl, posi="topleft")
 
 ```
 
+Visualisation of datasets showing published data (top) and new data (bottom). A PCA (axis 1-2_ showing the location of individuals, highlighting differences between the published and new dataset.  
 
 ```{r pca of data, message = F, caption = "Visualisation of datasets showing published data (top) and new data (bottom). A PCA (axis 1-2_ showing the location of individuals, highlighting differences between the published and new dataset"}
 orig_gl_m = gl2gi(orig_gl, v = 1)
@@ -223,8 +224,8 @@ new_gl.scaled_b<- adegenet::scaleGen(new_gl_m, NA.method= "zero")
 pca_new<- dudi.pca(new_gl.scaled_b, nf = 50, scannf = FALSE, scale = F, center  = T) #nf = 50
 new = factoextra::fviz_pca_ind(pca_new, axes = c(1,2))
 par(mfrow = c(1, 2))
-old
-new
+old + labs(title="PCA of data published in origional manuscript")
+new + labs(title="PCA of updated data")
 ```
 
 ## Discussion of error
@@ -1060,7 +1061,7 @@ ggplot(data2, aes(x = Year, y = est, group = est_type, colour = est_type)) +
 
 The following outputs have been specifically requested and this section provides extra details on them. 
 
-## A table comparing the before- and after-correction values for LD and SA Nb, SA Nb and any derived Nb estimates.
+### A table comparing the before- and after-correction values for LD and SA Nb, SA Nb and any derived Nb estimates.
 
 A new file '/Original Project Files/Results/Original_Results.xlsx' has been created with exact values from the published manuscript to avoid all doubt about the original numbers.
 
@@ -1079,11 +1080,39 @@ comparison_table %>% write_csv("./Results/Comparison_data.csv")
 comparison_table %>% gt()
 ```
 
-## Text, plots and/ or statistics that support the “stable Nb over X years” conclusion in the paper.
+### A plot comparing the before- and after-correction values for LD and SA Nb, SA Nb and any derived Nb estimates. Please note, 2014 is not included in the origional or the update manuscript, but included here for interest only. Sample size did not meet filtering cutoff.   
+
+```{r plot_table_data, message = F, echo = F, fig.cap = "Plot comparing the before- and after-correction values for LD and SA Nb, SA Nb."}
+plot_data = comparison_table %>%
+  select(-c("Nb_COM_est",	"Nb_COM_SD",	"Na_Nb_ratio",	"FS_count_Nb_SA",	"HS_count_Nb_SA")) %>%
+  pivot_longer(cols = starts_with("Nb_"), 
+               names_to = c(".value", "Type"), 
+               names_pattern = "Nb_(.*)_(.*)") %>%
+  mutate(LD = ifelse(is.na(LD), 2000, LD))  %>% # set to a big number if missing 
+  pivot_longer(cols = c("LD", "SA"), 
+               names_to = "Measure", 
+               values_to = "Value") %>%
+   pivot_wider(names_from = Type, values_from = Value)
+p = plot_data %>% 
+  ggplot(., aes(x = Year, y = est, color = Era)) +
+  geom_point(position = position_dodge(width=0.5)) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, position = position_dodge(width=0.5)) +
+  facet_wrap(~ Measure) +
+  labs(title = "Point Estimates with Confidence Intervals",
+       y = "Estimate",
+       color = "Era") +
+  theme_minimal()
+p
+# save 
+# ggsave(plot = p, filename = "./Figures/plot-compare.png")
+```
+
+
+### Text, plots and/ or statistics that support the “stable Nb over X years” conclusion in the paper.
 
 See earlier parts of this report. More can be added if required.
 
-## The final LD Ne datafile used to make the corrected estimates of Nb. 
+### The final LD Ne datafile used to make the corrected estimates of Nb. 
 
 This can be found in /Data/Processed/NeEstimator/genotypes_for_Ne.gen 
 
@@ -1097,7 +1126,7 @@ gl_file@loc.names %>% as.data.frame() %>% write_csv("./Data/Processed/loci_names
 
 ### All Cohorts
 
-This estimate should be treated with extreme caution when being interepreted.
+This estimate should be treated with extreme caution when being interpreted.
 
 ```{r}
 gl_file_temp <- gl.merge.pop(gl_file, old =  levels(gl_file@pop), new = "one-big-pop")
